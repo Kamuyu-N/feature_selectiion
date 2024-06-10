@@ -2,7 +2,7 @@ import pandas as pd
 import talib as tb
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 def Heikin_Ashi_data(index, open, high, low, close):
     data1 = {
@@ -57,56 +57,77 @@ def Heikin_Ashi_data(index, open, high, low, close):
         else:
             signal_data['Signal_value'].append(0)
 
-    return pd.DataFrame(signal_data).set_index('DateTime')
+    df = pd.DataFrame(signal_data)
+    df.set_index('DateTime', inplace=True)
+
+    return df.shift(periods=1)
 
 
-def shift_column_up(column, shift_len):
+def shift_column_up(column, shift_len, column_name):
     if not isinstance(column, pd.Series):
         raise ValueError("Input not pandas Series")
 
-    shifted_column = column.copy()
+    df = (pd.DataFrame(column))
+    df.columns = [column_name]
 
-    # Shift the values up by one position
-    shifted_column[1:] = shifted_column[:-1]
+    return df.shift(periods=shift_len)
 
-    return shifted_column
+def column_expand(indicator_data, indicator_type,TimeStamp):
+    col_2,col_3,col_4 = shift_column_up(indicator_data,1,f'{indicator_type}1'),shift_column_up(indicator_data,2,f'{indicator_type}2'),shift_column_up(indicator_data,3,f'{indicator_type}3')
 
+    return pd.concat([col_2,col_3,col_4],axis=1)
 
-# Example usage
-data = {'A': [10, 20, 30, 40]}
-df = pd.DataFrame(data)
-
-# Apply the function to the column 'A'
-df['A_shifted'] = shift_column_up(df['A'])
-
-print(df)
-
-# nan values will all be removed
-def prev_data(indicator_data, indicator_type,TimeStamp):
-    dt = TimeStamp.tolist()
-
-    #Column names will be changed during output
-    # must create a feasible schedule that can be followed( for sucess' pfailing to planis planning to falil)
-    data ={
+def price_columns(price,take_profit,stop_loss, look_period):
+    '''Row data in format of (DateTime,Open, High, Low, Close)'''
+    result = {
         'DateTime':[],
-        'c1':[],
-        'c2': [],
-        'c3': [],
-        'c4': [],
-        'c5':[]
+        'TRD_Final':[]
     }
 
-    for index, (date, value) in enumerate(indicator_data.items()):
-        data['DateTime'].append(dt.iloc[index])
-        if index == 0:
-            data['c1'].append(value)
-            data['c2'].append(value)
-            data['c3'].append(value)
-            data['c4'].append(value)
-            data['c5'].append(value)
+    for index, df_row in enumerate(price.iterrows()):
+        entry_price, temp_a = df_row[1],[]
+        foward_data = {
+            'High': [],
+            'Low': [],
+        }
 
-        else:
-            pass
+        for date, df_row_a in (price.iterrows()):
+            if i != df_row[4] and date > df_row_a[0]:
+                foward_data['High'].append(df_row_a[1])
+                foward_data['Low'].append(df_row_a[2])
+
+                if len(foward_data['High']) == look_period:
+                    if entry_price + take_profit < max(foward_data['High']) and entry_price - stop_loss > min(foward_data['Low']):
+                        result['DateTime'].append(df_row[0])
+                        result['TRD_Final'].append(1)
+
+                    elif entry_price - take_profit > min(foward_data['Low']) and entry_price + stop_loss < max(foward_data['High']):
+                        result['DateTime'].append(df_row[0])
+                        result['TRD_Final'].append(-1)
+
+                    else:
+                        result['DateTime'].append(df_row[0])
+                        result['TRD_Final'].append(0)
+
+                    #check if the conditions fit for all of the variables ( will it be ok in bulls and bears or
+                    # should we add a seperate condition for bulls and bears 
+
+
+
+                # store all high and low values then iterate to make sure none are hit
+                # i.e (entry - sl) is not < the lowest low of the list -- meaning the sl was never hit
+                row_prices, trade_temps = [df_row_a[2], df_row_a[3]], []
+
+
+                #For Bullish (insert a condition) and note that 1 minute data is also available
+                "If the take profit is hit and the sl is not hit it is a profitable trade"
+                if entry_price + take_profit < max(row_prices):
+                    trade_temps.append(1)
+
+
+
+
+
 
 
 # Data Preparation
@@ -116,29 +137,21 @@ df.columns = ['DATE', 'TIME', 'Open', 'High', 'Low', 'Close', 'Volume', 'VOL', '
 df['DATETIME'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
 df.drop(['DATE', 'TIME'], axis = 1, inplace=True)
 order = ['DATETIME', 'Open', 'High', 'Low', 'Close','Volume']
+
 price_action = (df[order])
 price_action.set_index("DATETIME", inplace=True)
 
-#Feature engineering
-rsi_columns = prev_data(tb.RSI(price_action.Close, timeperiod = 14),'RSI', price_action.index)
-kama = tb.KAMA(price_action.Close, timeperiod = 30)
-adx = tb.ADX(price_action.High, price_action.Low, price_action.Close)
-heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)
+# Feature engineering
+rsi_columns = column_expand(tb.RSI(price_action.Close, timeperiod = 14),'rsi', 2)
+Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)# should be shifted upwards once
+# trade_columns = price_columns(price_action)
+# removal of big moves i.e like 30 pips in a candle ( depending on the timeframe )
 
 
+for index,row in enumerate((price_action.iterrows())):
 
-# for index,(date,value) in enumerate(rsi.items()):
-#     print(rsi[index])
+    print(x)
+    quit()
 
-
-
-
-
-def indicator_addition(price):
-    '''Columns of indicator data will be input contsining the last three values in each column for each indicator
-    'for the price action ( columnss for the subtraction ( if a sucessful trade) remove the ones that were stoped out ( look at their low/high)
-     we can also look for a way to intoroduce the use of the hieken data (0 if confusing,1 if bbull and -1 if bear
-      We will play around with the timeperiod values'''
-
-
-
+# Tp abd Sl values are to be change considering the timeframe
+# Another method would be not to used fixed tp and sl zones
