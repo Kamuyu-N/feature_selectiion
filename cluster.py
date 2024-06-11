@@ -81,7 +81,9 @@ def price_columns(price,take_profit,stop_loss, look_period):
     '''Row data in format of (DateTime,Open, High, Low, Close)'''
     result = {
         'DateTime':[],
-        'TRD_Final':[]
+        'TRD_Final':[],
+        'Close_time':[]
+
     }
 
     for index, df_row in enumerate(price.iterrows()):
@@ -91,13 +93,19 @@ def price_columns(price,take_profit,stop_loss, look_period):
             'Low': [],
         }
 
+        val_return = {
+            'DateTime':[],
+            'Result':[]
+        }
+
         for date, df_row_a in (price.iterrows()):
-            if i != df_row[4] and date > df_row_a[0]:
+            if date > df_row[0] and len(foward_data['High']) < look_period:# error encountered( first condition)
                 foward_data['High'].append(df_row_a[1])
                 foward_data['Low'].append(df_row_a[2])
 
                 if len(foward_data['High']) == look_period:
-                    if entry_price + take_profit < max(foward_data['High']) and entry_price - stop_loss > min(foward_data['Low']):
+
+                    if (entry_price + take_profit) < max(foward_data['High']) & entry_price - stop_loss > min(foward_data['Low']):
                         result['DateTime'].append(df_row[0])
                         result['TRD_Final'].append(1)
 
@@ -109,25 +117,25 @@ def price_columns(price,take_profit,stop_loss, look_period):
                         result['DateTime'].append(df_row[0])
                         result['TRD_Final'].append(0)
 
-                    #check if the conditions fit for all of the variables ( will it be ok in bulls and bears or
-                    # should we add a seperate condition for bulls and bears 
+                    # look for the one that was hit first in the dict created.. sl or tp then use to crate the final result
+                    for date, order_outcome in result.items():
+                        if order_outcome in (1, -1):
+                            val_return['DateTime'].append(date)
+                            val_return['Result'].append(order_outcome)
+
+                        else:
+                            val_return['DateTime'].append(date)
+                            val_return['Result'].append(0)
+
+        result['DateTime'].append(df_row[0])
+        result['TRD_Final'].append(val_return['Result'])
+        result['Close_time'].append(val_return['DateTime']) # use or not ?
 
 
-
-                # store all high and low values then iterate to make sure none are hit
-                # i.e (entry - sl) is not < the lowest low of the list -- meaning the sl was never hit
-                row_prices, trade_temps = [df_row_a[2], df_row_a[3]], []
-
-
-                #For Bullish (insert a condition) and note that 1 minute data is also available
-                "If the take profit is hit and the sl is not hit it is a profitable trade"
-                if entry_price + take_profit < max(row_prices):
-                    trade_temps.append(1)
-
-
-
-
-
+#check if the conditions fit for all of the variables ( will it be ok in bulls and bears or
+# should we add a seperate condition for bulls and bear
+#For Bullish (insert a condition) and note that 1 minute data is also available
+"If the take profit is hit and the sl is not hit it is a profitable trade"
 
 
 # Data Preparation
@@ -144,14 +152,13 @@ price_action.set_index("DATETIME", inplace=True)
 # Feature engineering
 rsi_columns = column_expand(tb.RSI(price_action.Close, timeperiod = 14),'rsi', 2)
 Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)# should be shifted upwards once
-# trade_columns = price_columns(price_action)
+trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,look_period=5)
+
+
+
+
+
+        # considerations
 # removal of big moves i.e like 30 pips in a candle ( depending on the timeframe )
-
-
-for index,row in enumerate((price_action.iterrows())):
-
-    print(x)
-    quit()
-
 # Tp abd Sl values are to be change considering the timeframe
 # Another method would be not to used fixed tp and sl zones
