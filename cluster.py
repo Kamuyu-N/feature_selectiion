@@ -82,60 +82,47 @@ def price_columns(price,take_profit,stop_loss, look_period):
     result = {
         'DateTime':[],
         'TRD_Final':[],
-        'Close_time':[]
 
     }
+    for index, df_row_main in enumerate(price.iterrows()):
+        df_row,dt_main_loop = list(df_row_main[1]), df_row_main[0]
+        entry_price, temp_a = df_row[3],[]
 
-    for index, df_row in enumerate(price.iterrows()):
-        entry_price, temp_a = df_row[1],[]
         foward_data = {
             'High': [],
             'Low': [],
         }
 
-        val_return = {
-            'DateTime':[],
-            'Result':[]
-        }
-
         for date, df_row_a in (price.iterrows()):
-            if date > df_row[0] and len(foward_data['High']) < look_period:# error encountered( first condition)
-                foward_data['High'].append(df_row_a[1])
-                foward_data['Low'].append(df_row_a[2])
+            val_return = {
+                'DateTime': [],
+                'Result': []
+            }
+
+            if date > dt_main_loop and len(foward_data['High']) < look_period:# error encountered( first condition)
+
+                foward_data['High'].append(df_row_a.iloc[1])
+                foward_data['Low'].append(df_row_a.iloc[2])
 
                 if len(foward_data['High']) == look_period:
 
-                    if (entry_price + take_profit) < max(foward_data['High']) & entry_price - stop_loss > min(foward_data['Low']):
-                        result['DateTime'].append(df_row[0])
-                        result['TRD_Final'].append(1)
+                    for high, low in zip(foward_data["High"],foward_data['Low']):
+                        if entry_price + take_profit <= high and entry_price - stop_loss <= low:
+                            val_return['DateTime'].append(df_row_main[0])
+                            val_return['Result'].append(1)
 
-                    elif entry_price - take_profit > min(foward_data['Low']) and entry_price + stop_loss < max(foward_data['High']):
-                        result['DateTime'].append(df_row[0])
-                        result['TRD_Final'].append(-1)
+                        elif entry_price - take_profit <= low and entry_price + stop_loss > high:
+                            val_return['DateTime'].append(df_row_main[0])
+                            val_return['Result'].append(-1)
 
-                    else:
-                        result['DateTime'].append(df_row[0])
-                        result['TRD_Final'].append(0)
-
-                    # look for the one that was hit first in the dict created.. sl or tp then use to crate the final result
-                    for date, order_outcome in result.items():
-                        if order_outcome in (1, -1):
-                            val_return['DateTime'].append(date)
-                            val_return['Result'].append(order_outcome)
-
-                        else:
-                            val_return['DateTime'].append(date)
+                        elif entry_price - stop_loss <= low  or entry_price + stop_loss >= high: # if any of the sl have been hit
+                            val_return['DateTime'].append(df_row_main[0])
                             val_return['Result'].append(0)
 
-        result['DateTime'].append(df_row[0])
-        result['TRD_Final'].append(val_return['Result'])
-        result['Close_time'].append(val_return['DateTime']) # use or not ?
+                    result['DateTime'].append(val_return['DateTime'][0])
+                    result['TRD_Final'].append(val_return['Result'][0])
 
-
-#check if the conditions fit for all of the variables ( will it be ok in bulls and bears or
-# should we add a seperate condition for bulls and bear
-#For Bullish (insert a condition) and note that 1 minute data is also available
-"If the take profit is hit and the sl is not hit it is a profitable trade"
+    return pd.DataFrame(result)
 
 
 # Data Preparation
@@ -146,16 +133,16 @@ df['DATETIME'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
 df.drop(['DATE', 'TIME'], axis = 1, inplace=True)
 order = ['DATETIME', 'Open', 'High', 'Low', 'Close','Volume']
 
-price_action = (df[order])
+price_actionn = (df[order])
+price_action = price_actionn.tail(10)
 price_action.set_index("DATETIME", inplace=True)
 
 # Feature engineering
 rsi_columns = column_expand(tb.RSI(price_action.Close, timeperiod = 14),'rsi', 2)
 Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)# should be shifted upwards once
-trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,look_period=5)
+trade_columns = price_columns(price_action,take_profit=0.0005,stop_loss=0.0005,look_period=2) # for the fixed prices
 
-
-
+# fundumentals( if there is high data for the day or not )
 
 
         # considerations
