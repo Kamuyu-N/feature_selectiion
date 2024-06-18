@@ -149,3 +149,12 @@ trade_columns = price_columns(price_action,take_profit=0.0005,stop_loss=0.0005,l
 # removal of big moves i.e like 30 pips in a candle ( depending on the timeframe )
 # Tp abd Sl values are to be change considering the timeframe
 # Another method would be not to used fixed tp and sl zones
+
+#       Note
+# carry out eda to find out how many trades are taken in total
+# after the mddel has done predictions check if it is profitable and drawdown has not taken place
+# remember for data to be separated into 3 sets
+# use 4h data then scale upto 15 min data
+# addition of economic indicators
+# When done with fundumentals concact the data and store as csv( with all of the features of different time periods)--- should or not rsi and mom and stoch
+# addition of the math ones( we will see if anything arises in the model ) 
