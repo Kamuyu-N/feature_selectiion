@@ -72,8 +72,10 @@ def shift_column_up(column, shift_len, column_name):
 
     return df.shift(periods=shift_len)
 
-def column_expand(indicator_data, indicator_type,TimeStamp):
-    col_2,col_3,col_4 = shift_column_up(indicator_data,1,f'{indicator_type}1'),shift_column_up(indicator_data,2,f'{indicator_type}2'),shift_column_up(indicator_data,3,f'{indicator_type}3')
+
+def column_expand(indicator_data, indicator_type):
+
+    col_2,col_3,col_4 = shift_column_up(indicator_data,1,f'{indicator_type}_back1'),shift_column_up(indicator_data,2,f'{indicator_type}_back2'),shift_column_up(indicator_data,3,f'{indicator_type}_back3')
 
     return pd.concat([col_2,col_3,col_4],axis=1)
 
@@ -124,6 +126,8 @@ def price_columns(price,take_profit,stop_loss, look_period):
 
     return pd.DataFrame(result)
 
+def rate_of_change(indicator_data):
+    pass
 
 # Data Preparation
 pd.options.display.width = 0
@@ -132,16 +136,70 @@ df.columns = ['DATE', 'TIME', 'Open', 'High', 'Low', 'Close', 'Volume', 'VOL', '
 df['DATETIME'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
 df.drop(['DATE', 'TIME'], axis = 1, inplace=True)
 order = ['DATETIME', 'Open', 'High', 'Low', 'Close','Volume']
-
 price_actionn = (df[order])
-price_action = price_actionn.tail(10)
+price_action = price_actionn.tail(100)
 price_action.set_index("DATETIME", inplace=True)
 
-# Feature engineering
-rsi_columns = column_expand(tb.RSI(price_action.Close, timeperiod = 14),'rsi', 2)
-Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)# should be shifted upwards once
-trade_columns = price_columns(price_action,take_profit=0.0005,stop_loss=0.0005,look_period=2) # for the fixed prices
+                                # Feature engineering
+#rsi columns
+'''Check the impoertance values of the current then compare them with the lagged (shifted) -- chose the one with a higher importance reading '''
+rsi_periods  = pd.concat((pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 7),columns=['Rsi_7']),pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 21),
+                columns=['Rsi_21']),pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 14),columns=['Rsi_14'])),axis=1)
 
+#Moving averages
+kama_periods = pd.concat((pd.DataFrame(tb.KAMA(price_action.Close, timeperiod = 30), columns=['Kama_30']), pd.DataFrame(tb.KAMA(price_action.Close, timeperiod = 15), columns=['Kama_15']),
+                pd.DataFrame(tb.KAMA(price_action.Close, timeperiod = 60), columns=['Kama_60'])),axis=1)
+
+ema_periods = pd.concat((pd.DataFrame(tb.EMA(price_action.Close, timeperiod = 9), columns=['EMA_9']), pd.DataFrame(tb.EMA(price_action.Close, timeperiod = 21), columns=['EMA_21']),
+                pd.DataFrame(tb.EMA(price_action.Close, timeperiod = 50), columns=['EMA_50']),pd.DataFrame(tb.EMA(price_action.Close, timeperiod = 100), columns=['EMA_100'])), axis=1)
+
+tema_periods = pd.concat((pd.DataFrame(tb.TEMA(price_action.Close, timeperiod = 30), columns=['TEMA_30']), pd.DataFrame(tb.TEMA(price_action.Close, timeperiod = 15), columns=['TEMA_15']),
+                pd.DataFrame(tb.TEMA(price_action.Close, timeperiod = 60), columns=['TEMA_60'])),axis=1)
+
+t3_periods = pd.concat(((pd.DataFrame(tb.T3(price_action.Close, timeperiod=5),columns=['T3_5'])), (pd.DataFrame(tb.T3(price_action.Close, timeperiod=12),columns=['T3_12'])),
+                (pd.DataFrame(tb.T3(price_action.Close, timeperiod=20),columns=['T3_20']))),axis=1)
+
+#Other
+atr_periods = pd.concat(((pd.DataFrame(tb.ATR(price_action.High,price_action.Low,price_action.Close, timeperiod = 14),columns=['ATR_14'])),(pd.DataFrame(tb.ATR(price_action.High,price_action.Low,price_action.Close, timeperiod = 21),columns=['ATR_21'])),
+                (pd.DataFrame(tb.ATR(price_action.High,price_action.Low,price_action.Close, timeperiod = 28),columns=['ATR_28'])),(pd.DataFrame(tb.ATR(price_action.High,price_action.Low,price_action.Close, timeperiod = 7),columns=['ATR_7']))),axis = 1)
+
+adx_period =  pd.concat(((pd.DataFrame(tb.ADX(price_action.High,price_action.Low,price_action.Close, timeperiod = 14),columns=['ADX_14'])),(pd.DataFrame(tb.ADX(price_action.High,price_action.Low,price_action.Close, timeperiod = 21),columns=['ADX_21'])),
+                (pd.DataFrame(tb.ADX(price_action.High,price_action.Low,price_action.Close, timeperiod = 28),columns=['ADX_28'])),(pd.DataFrame(tb.ADX(price_action.High,price_action.Low,price_action.Close, timeperiod = 7),columns=['ADX_7']))),axis = 1)
+
+#Price Transform indicators
+avg_price = pd.DataFrame(tb.AVGPRICE(price_action.Open, price_action.High,price_action.Low, price_action.Close), columns=['AVGPRICE'])
+med_price = pd.DataFrame(tb.MEDPRICE(price_action.High, price_action.Low),columns=['MEDPRICE'])
+typical_price = pd.DataFrame(tb.TYPPRICE(price_action.High,price_action.Low, price_action.Close), columns=['TYPPRICE'])
+wcl_price = pd.DataFrame(tb.WCLPRICE(price_action.High,price_action.Low, price_action.Close),columns=['WCLPRICE'])
+
+#Statistical Methods
+
+
+
+Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)# should be shifted upwards once
+trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,look_period=3) # for the fixed prices
+
+#rsi perv
+
+
+
+
+
+
+
+
+
+
+
+
+print(rsi_columns)
+# print(type(X))
+# create all ( inclusive of the math functions ) and different period of the technical indicators --- then feature selection methods
+# look for a way to see previous movement
+
+
+
+# look at all of the coeficints from variance thresholds for the technical indicators
 # fundumentals( if there is high data for the day or not )
 
 
@@ -151,10 +209,11 @@ trade_columns = price_columns(price_action,take_profit=0.0005,stop_loss=0.0005,l
 # Another method would be not to used fixed tp and sl zones
 
 #       Note
-# carry out eda to find out how many trades are taken in total
+# carry out eda to find out how many trades are taken in total(Before and after )
 # after the mddel has done predictions check if it is profitable and drawdown has not taken place
 # remember for data to be separated into 3 sets
 # use 4h data then scale upto 15 min data
 # addition of economic indicators
 # When done with fundumentals concact the data and store as csv( with all of the features of different time periods)--- should or not rsi and mom and stoch
-# addition of the math ones( we will see if anything arises in the model ) 
+# addition of the math ones( we will see if anything arises in the model )
+# file kra returns and do the assignment
