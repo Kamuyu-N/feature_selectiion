@@ -173,6 +173,18 @@ typical_price = pd.DataFrame(tb.TYPPRICE(price_action.High,price_action.Low, pri
 wcl_price = pd.DataFrame(tb.WCLPRICE(price_action.High,price_action.Low, price_action.Close),columns=['WCLPRICE'])
 
 #Statistical Methods
+std_dev = pd.concat((pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod = 3), columns=['Std_dev_3']), pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod = 5), columns=['Std_dev_5']),
+            pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod = 7), columns=['Std_dev_7']), pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod = 10), columns=['Std_dev_10'])), axis=1)
+
+correl = pd.concat((pd.DataFrame(tb.CORREL(price_action.High, price_action.Low,timeperiod = 15), columns=['CORREL_15']), pd.DataFrame(tb.CORREL(price_action.High, price_action.Low,timeperiod = 30), columns=['CORREL_30']),
+                pd.DataFrame(tb.CORREL(price_action.High, price_action.Low,timeperiod = 45), columns=['CORREL_45']), pd.DataFrame(tb.CORREL(price_action.High, price_action.Low,timeperiod = 60), columns=['CORREL_60   '])),axis=1)
+
+linr_reg = pd.concat((pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 14), columns=['LinearReg_14']), pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 21), columns=['LinearReg_21']),
+            pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 28), columns=['LinearReg_28']),pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 7), columns=['LinearReg_7'])), axis=1
+)
+
+## do cycles next and also linear regression omnes
+
 
 
 
@@ -192,7 +204,7 @@ trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,l
 
 
 
-print(rsi_columns)
+print(adx_period)
 # print(type(X))
 # create all ( inclusive of the math functions ) and different period of the technical indicators --- then feature selection methods
 # look for a way to see previous movement
