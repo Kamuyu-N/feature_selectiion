@@ -141,36 +141,109 @@ price_action = price_actionn.tail(100)
 price_action.set_index("DATETIME", inplace=True)
 
                                 # Feature engineering
-#rsi columns
-'''Check the impoertance values of the current then compare them with the lagged (shifted) -- chose the one with a higher importance reading '''
-rsi_periods  = pd.concat((pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 7),columns=['Rsi_7']),pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 21),
-                columns=['Rsi_21']),pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 14),columns=['Rsi_14'])),axis=1)
-
-#Moving averages
-kama_periods = pd.concat((pd.DataFrame(tb.KAMA(price_action.Close, timeperiod = 30), columns=['Kama_30']), pd.DataFrame(tb.KAMA(price_action.Close, timeperiod = 15), columns=['Kama_15']),
-                pd.DataFrame(tb.KAMA(price_action.Close, timeperiod = 60), columns=['Kama_60'])),axis=1)
-
-ema_periods = pd.concat((pd.DataFrame(tb.EMA(price_action.Close, timeperiod = 9), columns=['EMA_9']), pd.DataFrame(tb.EMA(price_action.Close, timeperiod = 21), columns=['EMA_21']),
-                pd.DataFrame(tb.EMA(price_action.Close, timeperiod = 50), columns=['EMA_50']),pd.DataFrame(tb.EMA(price_action.Close, timeperiod = 100), columns=['EMA_100'])), axis=1)
-
-tema_periods = pd.concat((pd.DataFrame(tb.TEMA(price_action.Close, timeperiod = 30), columns=['TEMA_30']), pd.DataFrame(tb.TEMA(price_action.Close, timeperiod = 15), columns=['TEMA_15']),
-                pd.DataFrame(tb.TEMA(price_action.Close, timeperiod = 60), columns=['TEMA_60'])),axis=1)
-
-t3_periods = pd.concat(((pd.DataFrame(tb.T3(price_action.Close, timeperiod=5),columns=['T3_5'])), (pd.DataFrame(tb.T3(price_action.Close, timeperiod=12),columns=['T3_12'])),
-                (pd.DataFrame(tb.T3(price_action.Close, timeperiod=20),columns=['T3_20']))),axis=1)
-
-#Other
-atr_periods = pd.concat(((pd.DataFrame(tb.ATR(price_action.High,price_action.Low,price_action.Close, timeperiod = 14),columns=['ATR_14'])),(pd.DataFrame(tb.ATR(price_action.High,price_action.Low,price_action.Close, timeperiod = 21),columns=['ATR_21'])),
-                (pd.DataFrame(tb.ATR(price_action.High,price_action.Low,price_action.Close, timeperiod = 28),columns=['ATR_28'])),(pd.DataFrame(tb.ATR(price_action.High,price_action.Low,price_action.Close, timeperiod = 7),columns=['ATR_7']))),axis = 1)
-
-adx_period =  pd.concat(((pd.DataFrame(tb.ADX(price_action.High,price_action.Low,price_action.Close, timeperiod = 14),columns=['ADX_14'])),(pd.DataFrame(tb.ADX(price_action.High,price_action.Low,price_action.Close, timeperiod = 21),columns=['ADX_21'])),
-                (pd.DataFrame(tb.ADX(price_action.High,price_action.Low,price_action.Close, timeperiod = 28),columns=['ADX_28'])),(pd.DataFrame(tb.ADX(price_action.High,price_action.Low,price_action.Close, timeperiod = 7),columns=['ADX_7']))),axis = 1)
-
 #Price Transform indicators
 avg_price = pd.DataFrame(tb.AVGPRICE(price_action.Open, price_action.High,price_action.Low, price_action.Close), columns=['AVGPRICE'])
 med_price = pd.DataFrame(tb.MEDPRICE(price_action.High, price_action.Low),columns=['MEDPRICE'])
 typical_price = pd.DataFrame(tb.TYPPRICE(price_action.High,price_action.Low, price_action.Close), columns=['TYPPRICE'])
 wcl_price = pd.DataFrame(tb.WCLPRICE(price_action.High,price_action.Low, price_action.Close),columns=['WCLPRICE'])
+
+rsi_periods  = pd.concat((pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 7),columns=['Rsi_7']),
+                          pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 21), columns=['Rsi_21']),
+                          pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 14),columns=['Rsi_14']),
+                          pd.DataFrame(tb.RSI(avg_price.AVGPRICE, timeperiod = 7), columns=['Rsi_7_avg_price']),
+                          pd.DataFrame(tb.RSI(avg_price.AVGPRICE, timeperiod = 21), columns=['Rsi_21_avg_price']),
+                          pd.DataFrame(tb.RSI(avg_price.AVGPRICE, timeperiod = 14),columns=['Rsi_14_avg_price'])
+                         ), axis=1)
+
+
+mom_periods = pd.concat((pd.DataFrame(tb.MOM(price_action.Close, timeperiod=7), columns=['MOM_7']),
+                         pd.DataFrame(tb.MOM(price_action.Close, timeperiod=14), columns=['MOM_14']),
+                         pd.DataFrame(tb.MOM(price_action.Close, timeperiod=21), columns=['MOM_21']),
+                         pd.DataFrame(tb.MOM(price_action.Close, timeperiod=28), columns=['MOM_28']),
+                         pd.DataFrame(tb.MOM(avg_price.AVGPRICE, timeperiod=7), columns=['MOM_7_avg_price']),
+                         pd.DataFrame(tb.MOM(avg_price.AVGPRICE, timeperiod=14), columns=['MOM_14_avg_price']),
+                         pd.DataFrame(tb.MOM(avg_price.AVGPRICE, timeperiod=21), columns=['MOM_21_avg_price']),
+                         pd.DataFrame(tb.MOM(avg_price.AVGPRICE, timeperiod=28), columns=['MOM_28_avg_price'])
+                        ), axis=1)
+
+
+plus_di_periods = pd.concat((
+                        pd.DataFrame(tb.PLUS_DI(price_action.High, price_action.Low, price_action.Close, timeperiod=7),columns=['PLUS_DI_7']),
+                        pd.DataFrame(tb.PLUS_DI(price_action.High, price_action.Low, price_action.Close, timeperiod=14), columns=['PLUS_DI_14']),
+                        pd.DataFrame(tb.PLUS_DI(price_action.High, price_action.Low, price_action.Close, timeperiod=21), columns=['PLUS_DI_21']),
+                        pd.DataFrame(tb.PLUS_DI(price_action.High, price_action.Low, price_action.Close, timeperiod=28), columns=['PLUS_DI_28'])
+                    ), axis=1)
+
+minus_di_periods = pd.concat((
+                        pd.DataFrame(tb.MINUS_DI(price_action.High, price_action.Low, price_action.Close, timeperiod=7), columns=['MINUS_DI_7']),
+                        pd.DataFrame(tb.MINUS_DI(price_action.High, price_action.Low, price_action.Close, timeperiod=14), columns=['MINUS_DI_14']),
+                        pd.DataFrame(tb.MINUS_DI(price_action.High, price_action.Low, price_action.Close, timeperiod=21), columns=['MINUS_DI_21']),
+                        pd.DataFrame(tb.MINUS_DI(price_action.High, price_action.Low, price_action.Close, timeperiod=28), columns=['MINUS_DI_28'])
+                    ), axis=1)
+
+
+cmo_periods = pd.concat((pd.DataFrame(tb.CMO(price_action.Close, timeperiod=14), columns=['CMO_7']),
+                         pd.DataFrame(tb.CMO(price_action.Close, timeperiod=14), columns=['CMO_14']),
+                         pd.DataFrame(tb.CMO(price_action.Close, timeperiod=21), columns=['CMO_21']),
+                         pd.DataFrame(tb.CMO(price_action.Close, timeperiod=28), columns=['CMO_28']),
+                         pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=14), columns=['CMO_7_avg_price']),
+                         pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=14), columns=['CMO_14_avg_price']),
+                         pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=21), columns=['CMO_21_avg_price']),
+                         pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=28), columns=['CMO_28_avg_price'])
+                        ), axis=1)
+
+willr_periods = pd.concat((pd.DataFrame(tb.WILLR(price_action.High, price_action.Low, price_action.Close, timeperiod=7), columns=['WILLR_7']),
+                           pd.DataFrame(tb.WILLR(price_action.High, price_action.Low, price_action.Close, timeperiod=14), columns=['WILLR_14']),
+                           pd.DataFrame(tb.WILLR(price_action.High, price_action.Low, price_action.Close, timeperiod=21), columns=['WILLR_21']),
+                           pd.DataFrame(tb.WILLR(price_action.High, price_action.Low, price_action.Close, timeperiod=28), columns=['WILLR_28'])
+                          ), axis=1)
+#Moving averages
+kama_periods = pd.concat((pd.DataFrame(tb.KAMA(price_action.Close, timeperiod=30), columns=['Kama_30']),
+                          pd.DataFrame(tb.KAMA(price_action.Close, timeperiod=15), columns=['Kama_15']),
+                          pd.DataFrame(tb.KAMA(price_action.Close, timeperiod=60), columns=['Kama_60']),
+                          pd.DataFrame(tb.KAMA(avg_price.AVGPRICE, timeperiod=30), columns=['Kama_30_avg_price']),
+                          pd.DataFrame(tb.KAMA(avg_price.AVGPRICE, timeperiod=15), columns=['Kama_15_avg_price']),
+                          pd.DataFrame(tb.KAMA(avg_price.AVGPRICE, timeperiod=60), columns=['Kama_60_avg_price'])
+                         ), axis=1)
+
+ema_periods = pd.concat((pd.DataFrame(tb.EMA(price_action.Close, timeperiod=9), columns=['EMA_9']),
+                         pd.DataFrame(tb.EMA(price_action.Close, timeperiod=21), columns=['EMA_21']),
+                         pd.DataFrame(tb.EMA(price_action.Close, timeperiod=50), columns=['EMA_50']),
+                         pd.DataFrame(tb.EMA(price_action.Close, timeperiod=100), columns=['EMA_100']),
+                         pd.DataFrame(tb.EMA(avg_price.AVGPRICE, timeperiod=9), columns=['EMA_9_avg_price']),
+                         pd.DataFrame(tb.EMA(avg_price.AVGPRICE, timeperiod=21), columns=['EMA_21_avg_price']),
+                         pd.DataFrame(tb.EMA(avg_price.AVGPRICE, timeperiod=50), columns=['EMA_50_avg_price']),
+                         pd.DataFrame(tb.EMA(avg_price.AVGPRICE, timeperiod=100), columns=['EMA_100_avg_price'])
+                        ), axis=1)
+
+tema_periods = pd.concat((pd.DataFrame(tb.TEMA(price_action.Close, timeperiod=30), columns=['TEMA_30']),
+                          pd.DataFrame(tb.TEMA(price_action.Close, timeperiod=15), columns=['TEMA_15']),
+                          pd.DataFrame(tb.TEMA(price_action.Close, timeperiod=60), columns=['TEMA_60']),
+                          pd.DataFrame(tb.TEMA(avg_price.AVGPRICE, timeperiod=30), columns=['TEMA_30_avg_price']),
+                          pd.DataFrame(tb.TEMA(avg_price.AVGPRICE, timeperiod=15), columns=['TEMA_15_avg_price']),
+                          pd.DataFrame(tb.TEMA(avg_price.AVGPRICE, timeperiod=60), columns=['TEMA_60_avg_price'])
+                         ), axis=1)
+
+t3_periods = pd.concat((pd.DataFrame(tb.T3(price_action.Close, timeperiod=5), columns=['T3_5']),
+                        pd.DataFrame(tb.T3(price_action.Close, timeperiod=12), columns=['T3_12']),
+                        pd.DataFrame(tb.T3(price_action.Close, timeperiod=20), columns=['T3_20']),
+                        pd.DataFrame(tb.T3(avg_price.AVGPRICE, timeperiod=5), columns=['T3_5_avg_price']),
+                        pd.DataFrame(tb.T3(avg_price.AVGPRICE, timeperiod=12), columns=['T3_12_avg_price']),
+                        pd.DataFrame(tb.T3(avg_price.AVGPRICE, timeperiod=20), columns=['T3_20_avg_price'])
+                       ), axis=1)
+
+#Other
+atr_periods = pd.concat((pd.DataFrame(tb.ATR(price_action.High, price_action.Low, price_action.Close, timeperiod=14), columns=['ATR_14']),
+                         pd.DataFrame(tb.ATR(price_action.High, price_action.Low, price_action.Close, timeperiod=21), columns=['ATR_21']),
+                         pd.DataFrame(tb.ATR(price_action.High, price_action.Low, price_action.Close, timeperiod=28), columns=['ATR_28']),
+                         pd.DataFrame(tb.ATR(price_action.High, price_action.Low, price_action.Close, timeperiod=7), columns=['ATR_7'])
+                        ), axis=1)
+
+adx_period = pd.concat((pd.DataFrame(tb.ADX(price_action.High, price_action.Low, price_action.Close, timeperiod=14), columns=['ADX_14']),
+                        pd.DataFrame(tb.ADX(price_action.High, price_action.Low, price_action.Close, timeperiod=21), columns=['ADX_21']),
+                        pd.DataFrame(tb.ADX(price_action.High, price_action.Low, price_action.Close, timeperiod=28), columns=['ADX_28']),
+                        pd.DataFrame(tb.ADX(price_action.High, price_action.Low, price_action.Close, timeperiod=7), columns=['ADX_7'])
+                       ), axis=1)
 
 #Statistical Methods
 std_dev = pd.concat((pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod = 3), columns=['Std_dev_3']), pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod = 5), columns=['Std_dev_5']),
@@ -179,39 +252,56 @@ std_dev = pd.concat((pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod = 3),
 correl = pd.concat((pd.DataFrame(tb.CORREL(price_action.High, price_action.Low,timeperiod = 15), columns=['CORREL_15']), pd.DataFrame(tb.CORREL(price_action.High, price_action.Low,timeperiod = 30), columns=['CORREL_30']),
                 pd.DataFrame(tb.CORREL(price_action.High, price_action.Low,timeperiod = 45), columns=['CORREL_45']), pd.DataFrame(tb.CORREL(price_action.High, price_action.Low,timeperiod = 60), columns=['CORREL_60   '])),axis=1)
 
-linr_reg = pd.concat((pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 14), columns=['LinearReg_14']), pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 21), columns=['LinearReg_21']),
-            pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 28), columns=['LinearReg_28']),pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 7), columns=['LinearReg_7'])), axis=1
-)
+linear_reg = pd.concat((pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 14), columns=['LinearReg_14']), pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 21), columns=['LinearReg_21']),
+            pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 28), columns=['LinearReg_28']),pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod= 7), columns=['LinearReg_7'])), axis=1)
 
-## do cycles next and also linear regression omnes
+linearReg_slope = pd.concat([pd.DataFrame(tb.LINEARREG_SLOPE(price_action.Close, timeperiod=14), columns=['LinearSlope_14']),
+                             pd.DataFrame(tb.LINEARREG_SLOPE(price_action.Close, timeperiod=7), columns=['LinearSlope_7']),
+                             pd.DataFrame(tb.LINEARREG_SLOPE(price_action.Close, timeperiod=21), columns=['LinearSlope_21']),
+                             pd.DataFrame(tb.LINEARREG_SLOPE(price_action.Close, timeperiod=28), columns=['LinearSlope_28'])], axis=1)
+
+# Cycle Indicators
+ht_dcperiod = pd.concat((pd.DataFrame(tb.HT_DCPERIOD(price_action.Close), columns=['HT_DCPERIOD']),
+                         pd.DataFrame(tb.HT_DCPERIOD(avg_price.AVGPRICE), columns=['HT_DCPERIOD_avg_price'])
+                        ), axis=1)
+
+ht_dcphase = pd.concat((pd.DataFrame(tb.HT_DCPHASE(price_action.Close), columns=['HT_DCPHASE']),
+                        pd.DataFrame(tb.HT_DCPHASE(avg_price.AVGPRICE), columns=['HT_DCPHASE_avg_price'])
+                       ), axis=1)
+
+ht_trendmode = pd.concat((pd.DataFrame(tb.HT_TRENDMODE(price_action.Close), columns=['HT_TRENDMODE']),
+                          pd.DataFrame(tb.HT_TRENDMODE(avg_price.AVGPRICE), columns=['HT_TRENDMODE_avg_price'])
+                         ), axis=1)
+
+# Math transforms
+ln = pd.concat((pd.DataFrame(tb.LN(price_action.Close), columns=['LN']),
+                pd.DataFrame(tb.LN(avg_price.AVGPRICE), columns=['LN_avg_price'])
+               ), axis=1)
+
+LOG10 = pd.concat((pd.DataFrame(tb.LOG10(price_action.Close), columns=['LOG_10']),
+                   pd.DataFrame(tb.LOG10(avg_price.AVGPRICE), columns=['LOG_10_avg_price'])
+                  ), axis=1)
+
+sqrt = pd.concat((pd.DataFrame(tb.SQRT(price_action.Close), columns=['SQRT']),
+                  pd.DataFrame(tb.SQRT(avg_price.AVGPRICE), columns=['SQRT_avg_price'])
+                 ), axis=1)
+
+exp = pd.concat((pd.DataFrame(tb.EXP(price_action.Close), columns=['EXP']),
+                 pd.DataFrame(tb.EXP(avg_price.AVGPRICE), columns=['EXP_avg_price'])
+                ), axis=1)
+
+cos = pd.concat((pd.DataFrame(tb.COS(price_action.Close), columns=['COS']),
+                 pd.DataFrame(tb.COS(avg_price.AVGPRICE), columns=['COS_avg_price'])
+                ), axis=1)
+
+Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)
+trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,look_period=3) #Label
+
+df = pd.concat([trade_columns,Heikin_ashi,cos,exp,sqrt,LOG10,ln,ht_trendmode,ht_dcphase,ht_dcperiod,linear_reg,linearReg_slope,correl,std_dev,adx_period,atr_periods,t3_periods,tema_periods,
+                ema_periods,kama_periods,willr_periods,cmo_periods,wcl_price,plus_di_periods,minus_di_periods,mom_periods,rsi_periods,avg_price,typical_price,med_price], axis=1, ignore_index=False)
 
 
-
-
-Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)# should be shifted upwards once
-trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,look_period=3) # for the fixed prices
-
-#rsi perv
-
-
-
-
-
-
-
-
-
-
-
-
-print(adx_period)
-# print(type(X))
-# create all ( inclusive of the math functions ) and different period of the technical indicators --- then feature selection methods
-# look for a way to see previous movement
-
-
-
-# look at all of the coeficints from variance thresholds for the technical indicators
+print(df.tail(10))
 # fundumentals( if there is high data for the day or not )
 
 
@@ -219,13 +309,13 @@ print(adx_period)
 # removal of big moves i.e like 30 pips in a candle ( depending on the timeframe )
 # Tp abd Sl values are to be change considering the timeframe
 # Another method would be not to used fixed tp and sl zones
+# use summation of (ohlc) for indicator calculation ?
+
 
 #       Note
-# carry out eda to find out how many trades are taken in total(Before and after )
 # after the mddel has done predictions check if it is profitable and drawdown has not taken place
-# remember for data to be separated into 3 sets
-# use 4h data then scale upto 15 min data
+
 # addition of economic indicators
 # When done with fundumentals concact the data and store as csv( with all of the features of different time periods)--- should or not rsi and mom and stoch
-# addition of the math ones( we will see if anything arises in the model )
-# file kra returns and do the assignment
+
+
