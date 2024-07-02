@@ -124,10 +124,39 @@ def price_columns(price,take_profit,stop_loss, look_period):
                     result['DateTime'].append(val_return['DateTime'][0])
                     result['TRD_Final'].append(val_return['Result'][0])
 
-    return pd.DataFrame(result)
+    end = pd.DataFrame(result).set_index('DateTime')
 
-def rate_of_change(indicator_data):
-    pass
+    missing_data = (price_action.tail(look_period).copy()).drop(['Open', 'High', 'Low', 'Close', 'Volume'], axis= 1)
+
+    missing_data['TRD_Final'] = np.nan
+
+    return pd.concat([end,missing_data])
+
+def rate_of_change_columns(data_frame, period):
+    data = data_frame.copy()
+    new_roc = {}
+
+    try:
+        categorical_columns = data.select_dtypes(include=['int']).columns.tolist()
+        numerical_columns = data.select_dtypes(include=['float']).columns.tolist()
+    except Exception as e:
+        print(f"{e} : Remove all nan values present in the DataFrame")
+
+    for column in numerical_columns:
+        col_name = f'{column}_ROC_{period}'
+        new_roc[col_name] = data[column].pct_change(periods=period)
+
+    return pd.DataFrame(new_roc, index=data.index)
+
+
+def ma_categorical(ma,close_prices):
+    ma_df,categories_df = pd.concat(ma, axis=1),{}
+
+    for column in ma_df.columns.tolist():
+        col_name = f'{column}_categorical'
+        categories_df[col_name] = ma_df[column] > (close_prices)
+
+    return pd.DataFrame(categories_df).astype(int)
 
 # Data Preparation
 pd.options.display.width = 0
@@ -136,8 +165,9 @@ df.columns = ['DATE', 'TIME', 'Open', 'High', 'Low', 'Close', 'Volume', 'VOL', '
 df['DATETIME'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
 df.drop(['DATE', 'TIME'], axis = 1, inplace=True)
 order = ['DATETIME', 'Open', 'High', 'Low', 'Close','Volume']
-price_actionn = (df[order])
-price_action = price_actionn.tail(100)
+price_action = (df[order]).tail(500)
+print(len(price_action))
+
 price_action.set_index("DATETIME", inplace=True)
 
                                 # Feature engineering
@@ -295,27 +325,58 @@ cos = pd.concat((pd.DataFrame(tb.COS(price_action.Close), columns=['COS']),
                 ), axis=1)
 
 Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)
-trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,look_period=3) #Label
+trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,look_period=10) #find the bset combination use a for loop ( all combinations )
+ma_categories = ma_categorical([kama_periods,t3_periods,ema_periods,tema_periods],price_action.Close)
 
-df = pd.concat([trade_columns,Heikin_ashi,cos,exp,sqrt,LOG10,ln,ht_trendmode,ht_dcphase,ht_dcperiod,linear_reg,linearReg_slope,correl,std_dev,adx_period,atr_periods,t3_periods,tema_periods,
-                ema_periods,kama_periods,willr_periods,cmo_periods,wcl_price,plus_di_periods,minus_di_periods,mom_periods,rsi_periods,avg_price,typical_price,med_price], axis=1, ignore_index=False)
+df = pd.concat([price_action.Open,price_action.High,price_action.Low,price_action.Close,Heikin_ashi,cos,exp,sqrt,LOG10,ln,ht_trendmode,ht_dcphase,ht_dcperiod,linear_reg,linearReg_slope,correl,std_dev,adx_period,atr_periods,t3_periods,tema_periods,
+                ema_periods,kama_periods,willr_periods,cmo_periods,wcl_price,plus_di_periods,minus_di_periods,mom_periods,rsi_periods,avg_price,typical_price,med_price,trade_columns, ma_categories], axis=1)
+
+print(df['TEMA_60_avg_price'])
+counter = 0
+nan_values = (df['TEMA_60_avg_price']).isna().sum().sum()
 
 
-print(df.tail(10))
-# fundumentals( if there is high data for the day or not )
+
+
+print(counter)
+
+
+
+sns.heatmap(data=df.isnull(), cbar=False, yticklabels=False)
+plt.show()
+quit()
+
+
+df.dropna(axis= 0, inplace=True)
+df['Signal_value'] = df['Signal_value'].astype(int)
+
+ROC_col = rate_of_change_columns(df, 4)
+df = pd.concat([df,ROC_col], axis=1)
+df.dropna(axis=0 , inplace=True) # to remove the nan values from ROC
+
+
+
+
+
+
+# file_path = 'C:/Users/25473/Documents/DataFrame/price.csv'  # Replace with your desired file path
+# df.to_csv(file_path, index=False)
+
+#Addition of financial data and removal of entries based off of the news
+#Then removal of the nan values ( keep training with the 4h then later do the 15 minute)
+#find the bset combination use a for loop ( all combinations of sl, tp and look period)
+# and use of the art method for sl and tp -- find the most profiatvble ( ask gpt if approach is good )
+
+
 
 
         # considerations
 # removal of big moves i.e like 30 pips in a candle ( depending on the timeframe )
 # Tp abd Sl values are to be change considering the timeframe
 # Another method would be not to used fixed tp and sl zones
-# use summation of (ohlc) for indicator calculation ?
+
 
 
 #       Note
 # after the mddel has done predictions check if it is profitable and drawdown has not taken place
-
-# addition of economic indicators
 # When done with fundumentals concact the data and store as csv( with all of the features of different time periods)--- should or not rsi and mom and stoch
-
-
