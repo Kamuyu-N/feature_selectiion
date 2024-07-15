@@ -3,6 +3,8 @@ import talib as tb
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+from joblib import Parallel, delayed
+from numba import njit
 
 def Heikin_Ashi_data(index, open, high, low, close):
     data1 = {
@@ -79,6 +81,7 @@ def column_expand(indicator_data, indicator_type):
 
     return pd.concat([col_2,col_3,col_4],axis=1)
 
+@njit
 def price_columns(price,take_profit,stop_loss, look_period):
     '''Row data in format of (DateTime,Open, High, Low, Close)'''
     result = {
@@ -132,6 +135,7 @@ def price_columns(price,take_profit,stop_loss, look_period):
 
     return pd.concat([end,missing_data])
 
+@njit
 def rate_of_change_columns(data_frame, period):
     data = data_frame.copy()
     new_roc = {}
@@ -139,12 +143,16 @@ def rate_of_change_columns(data_frame, period):
     try:
         categorical_columns = data.select_dtypes(include=['int']).columns.tolist()
         numerical_columns = data.select_dtypes(include=['float']).columns.tolist()
+
+
     except Exception as e:
         print(f"{e} : Remove all nan values present in the DataFrame")
 
     for column in numerical_columns:
         col_name = f'{column}_ROC_{period}'
-        new_roc[col_name] = data[column].pct_change(periods=period)
+        if col_name == 'TRD_Final_ROC_4' : continue
+        new_roc[col_name] = data[column].pct_change(periods=period) # print for rsi and ensure other data is correct
+
 
     return pd.DataFrame(new_roc, index=data.index)
 
@@ -155,7 +163,6 @@ def ma_categorical(ma,close_prices):
     for column in ma_df.columns.tolist():
         col_name = f'{column}_categorical'
         categories_df[col_name] = ma_df[column] > (close_prices)
-
     return pd.DataFrame(categories_df).astype(int)
 
 # Data Preparation
@@ -165,8 +172,7 @@ df.columns = ['DATE', 'TIME', 'Open', 'High', 'Low', 'Close', 'Volume', 'VOL', '
 df['DATETIME'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
 df.drop(['DATE', 'TIME'], axis = 1, inplace=True)
 order = ['DATETIME', 'Open', 'High', 'Low', 'Close','Volume']
-price_action = (df[order]).tail(500)
-print(len(price_action))
+price_action = (df[order])
 
 price_action.set_index("DATETIME", inplace=True)
 
@@ -177,6 +183,25 @@ med_price = pd.DataFrame(tb.MEDPRICE(price_action.High, price_action.Low),column
 typical_price = pd.DataFrame(tb.TYPPRICE(price_action.High,price_action.Low, price_action.Close), columns=['TYPPRICE'])
 wcl_price = pd.DataFrame(tb.WCLPRICE(price_action.High,price_action.Low, price_action.Close),columns=['WCLPRICE'])
 
+# function for momentum indicators
+@njit
+def mom_periods(price_variable, periods, indicator_name, data_to_be_used):
+    '''For the data_to_be_used parameter pass in a list of strings '''
+    tb_indicator = f'tb.{indicator_name}'
+    temp = {}
+    if data_to_be_used.lower() == 'close':
+        for period in periods:
+            temp[f'{indicator_name}_{period}'] = eval(tb_indicator)(price_action.Close, timeperiod=period)
+
+    elif data_to_be_used.lower() == 'avgprice' :
+        for periods in periods:
+            temp[f'{indicator_name}_{period}_avg_price'] = eval(tb_indicator)(price_action.Close, timeperiod = period) 
+        
+    else:
+        for period in periods:
+            temp[f'{indicator_name}_{period}'] = eval(tb_indicator)(price_action.High, price_action.Low, price_action.Close, timeperiod=period)
+        
+    return pd.DataFrame(temp)
 rsi_periods  = pd.concat((pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 7),columns=['Rsi_7']),
                           pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 21), columns=['Rsi_21']),
                           pd.DataFrame(tb.RSI(price_action.Close, timeperiod = 14),columns=['Rsi_14']),
@@ -212,11 +237,11 @@ minus_di_periods = pd.concat((
                     ), axis=1)
 
 
-cmo_periods = pd.concat((pd.DataFrame(tb.CMO(price_action.Close, timeperiod=14), columns=['CMO_7']),
+cmo_periods = pd.concat((pd.DataFrame(tb.CMO(price_action.Close, timeperiod=7), columns=['CMO_7']),
                          pd.DataFrame(tb.CMO(price_action.Close, timeperiod=14), columns=['CMO_14']),
                          pd.DataFrame(tb.CMO(price_action.Close, timeperiod=21), columns=['CMO_21']),
                          pd.DataFrame(tb.CMO(price_action.Close, timeperiod=28), columns=['CMO_28']),
-                         pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=14), columns=['CMO_7_avg_price']),
+                         pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=7), columns=['CMO_7_avg_price']),
                          pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=14), columns=['CMO_14_avg_price']),
                          pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=21), columns=['CMO_21_avg_price']),
                          pd.DataFrame(tb.CMO(avg_price.AVGPRICE, timeperiod=28), columns=['CMO_28_avg_price'])
@@ -325,26 +350,11 @@ cos = pd.concat((pd.DataFrame(tb.COS(price_action.Close), columns=['COS']),
                 ), axis=1)
 
 Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low, price_action.Close)
-trade_columns = price_columns(price_action,take_profit=0.0010,stop_loss=0.0010,look_period=10) #find the bset combination use a for loop ( all combinations )
+trade_columns = price_columns(price_action,take_profit=0.0026,stop_loss=0.0013,look_period=10) #find the bset combination use a for loop ( all combinations )
 ma_categories = ma_categorical([kama_periods,t3_periods,ema_periods,tema_periods],price_action.Close)
 
 df = pd.concat([price_action.Open,price_action.High,price_action.Low,price_action.Close,Heikin_ashi,cos,exp,sqrt,LOG10,ln,ht_trendmode,ht_dcphase,ht_dcperiod,linear_reg,linearReg_slope,correl,std_dev,adx_period,atr_periods,t3_periods,tema_periods,
                 ema_periods,kama_periods,willr_periods,cmo_periods,wcl_price,plus_di_periods,minus_di_periods,mom_periods,rsi_periods,avg_price,typical_price,med_price,trade_columns, ma_categories], axis=1)
-
-print(df['TEMA_60_avg_price'])
-counter = 0
-nan_values = (df['TEMA_60_avg_price']).isna().sum().sum()
-
-
-
-
-print(counter)
-
-
-
-sns.heatmap(data=df.isnull(), cbar=False, yticklabels=False)
-plt.show()
-quit()
 
 
 df.dropna(axis= 0, inplace=True)
@@ -352,15 +362,14 @@ df['Signal_value'] = df['Signal_value'].astype(int)
 
 ROC_col = rate_of_change_columns(df, 4)
 df = pd.concat([df,ROC_col], axis=1)
+
 df.dropna(axis=0 , inplace=True) # to remove the nan values from ROC
 
+file_path = 'C:/Users/25473/Documents/DataFrame/price.csv'  # Replace with your desired file path
+df.to_csv(file_path, index=False)
+# use of atr for sl etc
 
 
-
-
-
-# file_path = 'C:/Users/25473/Documents/DataFrame/price.csv'  # Replace with your desired file path
-# df.to_csv(file_path, index=False)
 
 #Addition of financial data and removal of entries based off of the news
 #Then removal of the nan values ( keep training with the 4h then later do the 15 minute)
