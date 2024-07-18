@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
-
+import multiprocessing
 
 
 def Heikin_Ashi_data(index, open, high, low, close):
@@ -87,6 +87,7 @@ def column_expand(indicator_data, indicator_type):
 
 def price_columns(price, take_profit, stop_loss, look_period):
     '''Row data in format of (DateTime,Open, High, Low, Close)'''
+
     result = {
         'DateTime': [],
         'TRD_Final': [],
@@ -177,11 +178,12 @@ print(df.columns)
 # df.drop(['DATE', 'TIME'], axis=1, inplace=True)
 order = ['DATETIME', 'Open', 'High', 'Low', 'Close', 'Volume']
 price_action = (df[order])
+price_action = price_action[:1000]
 
 price_action.set_index("DATETIME", inplace=True)
 print(price_action)
 
-# Feature engineering
+
 # Price Transform indicators
 avg_price = pd.DataFrame(tb.AVGPRICE(price_action.Open, price_action.High, price_action.Low, price_action.Close),
                          columns=['AVGPRICE'])
@@ -190,7 +192,25 @@ typical_price = pd.DataFrame(tb.TYPPRICE(price_action.High, price_action.Low, pr
 wcl_price = pd.DataFrame(tb.WCLPRICE(price_action.High, price_action.Low, price_action.Close), columns=['WCLPRICE'])
 
 
-# function for momentum indicators
+def chunk_split(df):
+    no_of_chunks = round(len(df)/multiprocessing.cpu_count())
+    temp,a = [],0
+
+    for i in range(1,round(len(df)/no_of_chunks)+1):
+        a += no_of_chunks
+        if i == 1:
+            temp.append(df[:a])
+            continue
+        elif i == no_of_chunks:
+            temp.append(df[prev:])
+            break
+
+        prev = a - no_of_chunks
+        temp.append(df[prev:a])
+
+    return temp
+
+
 def indicator_calc(periods, indicator_name, data_to_be_used):
     '''For the data_to_be_used parameter pass in a list of strings '''
     tb_indicator = getattr(tb,indicator_name)
@@ -286,30 +306,39 @@ cos = pd.concat((pd.DataFrame(tb.COS(price_action.Close), columns=['COS']),
                  pd.DataFrame(tb.COS(avg_price.AVGPRICE), columns=['COS_avg_price'])
                  ), axis=1)
 
-Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low,
-                               price_action.Close)
-trade_columns = price_columns(price_action, take_profit=0.0026, stop_loss=0.0013,
-                              look_period=10)  # find the bset combination use a for loop ( all combinations )
+Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low,price_action.Close)
 ma_categories = ma_categorical([kama_periods, t3_periods, ema_periods, tema_periods], price_action.Close)
+# what is the point of the ma_categorical
+def file_creation(tp,sl,look_foward):
+#Trade_column calculations
+    trade_columns_list = Parallel(n_jobs=-1,verbose=1)(delayed(price_columns)(data_chunk, take_profit=tp, stop_loss=sl,look_period=look_foward)for data_chunk in chunk_split(price_action))
+    trade_columns = pd.concat(trade_columns_list)
+    trade_columns.set_index(price_action.index, inplace=True)
 
-df = pd.concat(
-    [price_action.Open, price_action.High, price_action.Low, price_action.Close, Heikin_ashi, cos, exp, sqrt, LOG10, ln,
-     ht_trendmode, ht_dcphase, ht_dcperiod, linear_reg, linearReg_slope, correl, std_dev, adx_period, atr_periods,
-     t3_periods, tema_periods,
-     ema_periods, kama_periods, willr_periods, cmo_periods, wcl_price, plus_di_periods, minus_di_periods, mom_periods,
-     rsi_periods, avg_price, typical_price, med_price, trade_columns, ma_categories], axis=1)
+    df = pd.concat(
+        [price_action.Open, price_action.High, price_action.Low, price_action.Close, Heikin_ashi, cos, exp, sqrt, LOG10, ln,
+         ht_trendmode, ht_dcphase, ht_dcperiod, linear_reg, linearReg_slope, correl, std_dev, adx_period, atr_periods,
+         t3_periods, tema_periods,ema_periods, kama_periods, willr_periods, cmo_periods, wcl_price, plus_di_periods, minus_di_periods, mom_periods,
+         rsi_periods, avg_price, typical_price, med_price, ma_categories, trade_columns], axis=1)
 
-df.dropna(axis=0, inplace=True)
-df['Signal_value'] = df['Signal_value'].astype(int)
+    print(df)
 
-ROC_col = rate_of_change_columns(df, 4)
-df = pd.concat([df, ROC_col], axis=1)
+    df.dropna(axis=0, inplace=True)
+    df['Signal_value'] = df['Signal_value'].astype(int)
 
-df.dropna(axis=0, inplace=True)  # to remove the nan values from ROC
+    ROC_col = rate_of_change_columns(df, 4)
+    df = pd.concat([df, ROC_col], axis=1)
 
-file_path = 'C:/Users/25473/Documents/DataFrame/price.csv'  # Replace with your desired file path
-df.to_csv(file_path, index=False)
-# use of atr for sl etc
+    df.dropna(axis=0, inplace=True)  # to remove the nan values from ROC
+
+    file_path = 'C:/Users/25473/Documents/DataFrame/price.csv'  # Replace with your desired file path
+    df.to_csv(file_path, index=False)
+
+loop_params_m15 = [[0.0010,0.0005,15],[0.0020,0.0010,15],[0.0020,0.0015,15],[0.0013,0.0006,15]]
+loop_params_h4 = [[0.0020,0.0010,10],[0.0020,0.0015,10],[0.0030,0.0010,10],[0.0030,0.0015,10]]
+
+for tp,sl,lp in loop_params_h4:
+        file_creation(tp,sl,lp)
 
 
 # Addition of financial data and removal of entries based off of the news
