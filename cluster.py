@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
-
+import multiprocessing
 
 
 def Heikin_Ashi_data(index, open, high, low, close):
@@ -181,7 +181,7 @@ price_action = (df[order])
 price_action.set_index("DATETIME", inplace=True)
 print(price_action)
 
-# Feature engineering
+
 # Price Transform indicators
 avg_price = pd.DataFrame(tb.AVGPRICE(price_action.Open, price_action.High, price_action.Low, price_action.Close),
                          columns=['AVGPRICE'])
@@ -190,7 +190,26 @@ typical_price = pd.DataFrame(tb.TYPPRICE(price_action.High, price_action.Low, pr
 wcl_price = pd.DataFrame(tb.WCLPRICE(price_action.High, price_action.Low, price_action.Close), columns=['WCLPRICE'])
 
 
-# function for momentum indicators
+def chunk_split(df):
+    no_of_chunks = round(len(df)/multiprocessing.cpu_count())
+    temp,a = [],0
+
+    for i in range(1,round(len(df)/no_of_chunks)+1):
+        a += no_of_chunks
+        print(a)
+        if i == 1:
+            temp.append(df[:a])
+            continue
+        elif i == no_of_chunks:
+            temp.append(df[prev:])
+            break
+
+        prev = a - no_of_chunks
+        temp.append(df[prev:a])
+
+    return temp
+
+
 def indicator_calc(periods, indicator_name, data_to_be_used):
     '''For the data_to_be_used parameter pass in a list of strings '''
     tb_indicator = getattr(tb,indicator_name)
@@ -286,11 +305,11 @@ cos = pd.concat((pd.DataFrame(tb.COS(price_action.Close), columns=['COS']),
                  pd.DataFrame(tb.COS(avg_price.AVGPRICE), columns=['COS_avg_price'])
                  ), axis=1)
 
-Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low,
-                               price_action.Close)
-trade_columns = price_columns(price_action, take_profit=0.0026, stop_loss=0.0013,
-                              look_period=10)  # find the bset combination use a for loop ( all combinations )
+Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low,price_action.Close)
 ma_categories = ma_categorical([kama_periods, t3_periods, ema_periods, tema_periods], price_action.Close)
+
+#Trade_column calculations
+trade_columns = Parallel(n_jobs=-1,verbose=1)(delayed(price_columns)(data_chunk, take_profit=0.0026, stop_loss=0.0013,look_period=10)for data_chunk in chunk_split(price_action))
 
 df = pd.concat(
     [price_action.Open, price_action.High, price_action.Low, price_action.Close, Heikin_ashi, cos, exp, sqrt, LOG10, ln,
