@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
 import multiprocessing
-
+import datetime
 
 def Heikin_Ashi_data(index, open, high, low, close):
     data1 = {
@@ -171,19 +171,24 @@ def ma_categorical(ma, close_prices):
 
 # Data Preparation
 pd.options.display.width = 0
-df = pd.read_csv("C:/Users/samue/OneDrive/Documents/EURUSD_ForexTrading_4hrs_05.05.2003_to_16.10.2021.csv")
-df.columns = ['DATETIME', 'Open', 'High', 'Low', 'Close', 'Volume']
-print(df.columns)
-# df['DATETIME'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
+df = pd.read_csv("C:/Users/25473/Downloads/eurusd-15m/eurusd-15m.csv", sep= ';')
+df.columns = ['DATE','TIME','Open', 'High', 'Low', 'Close', 'Volume']
+df['DATETIME'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
 # df.drop(['DATE', 'TIME'], axis=1, inplace=True)
 order = ['DATETIME', 'Open', 'High', 'Low', 'Close', 'Volume']
+
+#For 15M data
+time_from = datetime.datetime.strptime('00:00:00', '%H:%M:%S').time()
+time_to = datetime.datetime.strptime('06:00:00', '%H:%M:%S').time()
+
+df['TIME'] = [datetime.datetime.strptime(time, '%H:%M:%S').time() for time in df['TIME']]
+df['DATETIME'] = [np.nan if x > time_from and x < time_to else x for x in df['TIME'] ]
+df.dropna(inplace=True, axis=0)
 price_action = (df[order])
-price_action = price_action[:1000]
-
+df.drop(['DATE', 'TIME'], axis=1, inplace=True)
 price_action.set_index("DATETIME", inplace=True)
-print(price_action)
 
-
+# price_action = price_action[:1000]
 # Price Transform indicators
 avg_price = pd.DataFrame(tb.AVGPRICE(price_action.Open, price_action.High, price_action.Low, price_action.Close),
                          columns=['AVGPRICE'])
@@ -321,8 +326,6 @@ def file_creation(tp,sl,look_foward):
          t3_periods, tema_periods,ema_periods, kama_periods, willr_periods, cmo_periods, wcl_price, plus_di_periods, minus_di_periods, mom_periods,
          rsi_periods, avg_price, typical_price, med_price, ma_categories, trade_columns], axis=1)
 
-    print(df)
-
     df.dropna(axis=0, inplace=True)
     df['Signal_value'] = df['Signal_value'].astype(int)
 
@@ -331,14 +334,26 @@ def file_creation(tp,sl,look_foward):
 
     df.dropna(axis=0, inplace=True)  # to remove the nan values from ROC
 
-    file_path = 'C:/Users/25473/Documents/DataFrame/price.csv'  # Replace with your desired file path
+    #creating a new file every
+    file_path = f'C:/Users/25473/Documents/DataFrame/15M_tp_{tp}_sl_{sl}.csv'
+    with open(file_path, 'w+') as file:
+        pass
+
     df.to_csv(file_path, index=False)
 
-loop_params_m15 = [[0.0010,0.0005,15],[0.0020,0.0010,15],[0.0020,0.0015,15],[0.0013,0.0006,15]]
+
+loop_params_m15 = [[0.0010,0.0005,15],[0.0020,0.0010,15],[0.0015,0.0010,15],[0.0014,0.0007,15]]
 loop_params_h4 = [[0.0020,0.0010,10],[0.0020,0.0015,10],[0.0030,0.0010,10],[0.0030,0.0015,10]]
 
-for tp,sl,lp in loop_params_h4:
+for tp,sl,lp in loop_params_m15:
         file_creation(tp,sl,lp)
+
+
+                # After file creation ( try and see which one macimizes the scores)
+#Try mixing the data ( for equal distribution ) -- after processing
+# try and remove if i.e 3 are following each other drop 2 ? try if better
+
+
 
 
 # Addition of financial data and removal of entries based off of the news
@@ -351,8 +366,7 @@ for tp,sl,lp in loop_params_h4:
 # removal of big moves i.e like 30 pips in a candle ( depending on the timeframe )
 # Tp abd Sl values are to be change considering the timeframe
 # Another method would be not to used fixed tp and sl zones
-
+#reduce timeperiods (to 5 ish ) and addition of the continur=e keyword (reduce irrelevant iterations )
 
 #       Note
-# after the mddel has done predictions check if it is profitable and drawdown has not taken place
-# When done with fundumentals concact the data and store as csv( with all of the features of different time periods)--- should or not rsi and mom and stoch
+# When done
