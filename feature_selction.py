@@ -148,29 +148,32 @@ selected_columns = [feature for feature,rank in rfe_rankings if rank == 1]
 
 #Test
 filtered_df = pd.DataFrame(k_best_df[selected_columns])
-validating_scores_data = pd.concat([filtered_df.tail(500),y.tail(500)], axis=1) # act as the validating set
+x_validation, y_validation = filtered_df.tail(1000), y.tail(1000) #Validation Set
 
-# filtered_df = filtered_df.iloc[:-500]
-# y = y.iloc[:-500]
+print(f'Values in the dataframe: {y.value_counts()}')
+filtered_df = filtered_df.iloc[:-1000]
+y = y.iloc[:-1000]
 
 X_train, X_test, y_train, y_test = train_test_split(filtered_df, y, test_size=0.25, random_state=42)
 model = RandomForestClassifier(verbose=1, n_jobs=-1,  n_estimators=500, max_depth=8, max_features=0.5, min_samples_split=10, min_samples_leaf=10)
 model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 classification = classification_report(y_test,y_pred)
+
 print(classification)
 print('The validation data test\n\n')
-print(classification_report(y_true=validating_scores_data['TRD_Final'],y_pred=model.predict(validating_scores_data.drop('TRD_Final',axis=1)), zero_division=1.0))
+print(classification_report(y_true=y_validation,y_pred=model.predict(x_validation), zero_division=0.0))
+
 
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_curve, recall_score, precision_score, make_scorer
 from  itertools import product
 from skopt import BayesSearchCV
+from skopt.space import Integer, Categorical
 
-#Attaing the best parameter values
 def custom_score(y_true, y_pred):
     '''To maximize the precision and recall values of the sell and buy  (-1 , 1)'''
-    class_report = classification_report(y_true, y_pred)
+    class_report = classification_report(y_true, y_pred, output_dict=True)
     recall_sell, recall_buy = class_report['-1.0']['recall'], class_report['1.0']['recall']
     precision_sell,precison_buy = class_report['-1.0']['precision'], class_report['1.0']['precision']
     a = precison_buy * recall_buy
@@ -188,32 +191,30 @@ param_space = {
     'criterion': Categorical(['gini', 'entropy'])
 }
 
-bayes_search = BayesSearchCV(estimator=RandomForestClassifier, scoring=make_scorer(custom_score, greater_is_better=True),
-                     search_spaces=param_space, cv=StratifiedKFold(10, shuffle=True, random_state=42), n_jobs= -1)
+bayes_search = BayesSearchCV(estimator=RandomForestClassifier(n_jobs=-1), scoring=make_scorer(custom_score, greater_is_better=True),
+                     search_spaces=param_space, cv=StratifiedKFold(10, shuffle=True, random_state=42), n_jobs=-1,verbose=1)
 
-bayes_search.fit(X_train, y_train)
-pred_y = bayes_search.predict(X_test)
-print(classification_report(y_test, y_pred))
-print(f'Validation test metrics ')
-print(f'\n best parameters (rfc) = {bayes_search.best_params_}')
+bayes_search.fit(X_train,y_train)
+print(f'\n best parameters (rfc) = {bayes_search.get_params()}')
 
 quit()
+#Validation Set( use best prev params)
+pred_validation = bayes_search.best_estimator_.p(x_validation)
+print('Validation (Rfc)\n\n')
+print(classification_report(y_validation, pred_validation))
+
 import optuna
-def optimize(trail):
+from optuna import Trial
+def optimize(trail:Trail):
     n_estimators = trail.suggest_int('n_estimators',100,700)
 
     if n_estimators < 100:
-        learning_rate = trail.suggest_float('learning_rate', 0.1,0)
-    elif n_estimators < 300:
-        learning_rate = trail.suggest_float('learning_rate', 0.1, 0.3)
-    elif n_estimators < 500:
-        learning_rate = trail.suggest_float('learning_rate', 0.1, 0.3)
+        learning_rate = trail.suggest_float('learning_rate', 0.15,0.4)
+    elif n_estimators < 400:
+        learning_rate = trail.suggest_float('learning_rate', 0.05, 0.1)
     else:
-        learning_rate = trail.suggest_float('learning_rate', 0.1, 0.3)
+        learning_rate = trail.suggest_float('learning_rate', 0.01, 0.05)
 
-    # fix the learning rate v the n_estimators
-    # finish validation check test
-    # Design for feature selection(trd_final calculation)
     model = GradientBoostingClassifier(
         learning_rate=learning_rate,
         n_estimators=n_estimators,
@@ -222,11 +223,11 @@ def optimize(trail):
         min_samples_split=trail.suggest_int('min_samples_split', 2,10),
         max_features=trail.suggest_categorical('max_features', ['sqrt', 'log2', None]),
         subsample=trail.suggest_float('subsample', 0.5, 1.0),
-
     )
 
     model.fit(X_train,y_train)
     y_pred = model.predict(X_test)
+
     #Scoring metrics
     class_report = classification_report(y_true, y_pred)
     recall_sell, recall_buy = class_report['-1.0']['recall'], class_report['1.0']['recall']
@@ -235,7 +236,8 @@ def optimize(trail):
     return (precison_buy * recall_buy) * (precision_sell * recall_sell)
 
 study = optuna.create_study()
-study.optimize(objective, n_trials=100)
+study.optimize(objective, n_trials = 1000)
+print(f"Optuna ( Bayes Search ): {study.best_params}")
 
 #Creating all possible combinations to be used
 probabilities_y = model.predict_proba(X_test)
@@ -263,7 +265,7 @@ for sell_thresh, buy_thresh in thresh_combinations:
     precision_values = [class_report['-1.0']['precision'],class_report['1.0']['precision']]
     recall_values = [class_report['-1.0']['recall'],class_report['1.0']['recall']]
 
-    # get best threshold values and carry out model stacking
+    # Get best threshold values and carry out model stacking
     score_values['Sell_thresh'].append(sell_thresh)
     score_values['Buy_thresh'].append(buy_thresh)
     score_values['Recall_score'].append([class_report['-1.0']['recall'], class_report['1.0']['recall']])
@@ -288,6 +290,7 @@ scores_sept = {
     'Precision_sell': precision_sell,
     'Precision_buy': precison_buy
 }
+quit()
 
 from sklearn.ensemble import StackingClassifier
 estimators = [
@@ -302,7 +305,6 @@ print('Model stacking is running')
 stc.fit(X_train,y_train)
 y_pred = stc.predict(X_test)
 print(classification_report(y_test,y_pred))
-
 
 score_df = pd.DataFrame({**dict(score_df),**scores_sept}).drop(['Recall_score', 'Precision_score'], axis=1).reset_index(drop=True)
 print(f'{score_df} \n \n GBC training')
@@ -351,3 +353,9 @@ stratified_fold = StratifiedKFold(10,shuffle=True, random_state=42)
 #LATER CHECK THE 15 MINITE ( with and without the data from 12 am to 6 am ) && do the same for the 4 hr data
 # to be done after multiprocessign is complete ( feature creation)
 # Remember to run it throught the validation sets (and analyse the data) -- profitable or not , all months , gain, total trades et
+
+
+
+
+
+
