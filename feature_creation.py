@@ -6,6 +6,8 @@ import numpy as np
 from joblib import Parallel, delayed
 import multiprocessing
 import datetime
+import polars as pl
+
 
 def Heikin_Ashi_data(index, open, high, low, close):
     data1 = {
@@ -69,7 +71,6 @@ def Heikin_Ashi_data(index, open, high, low, close):
 def shift_column_up(column, shift_len, column_name):
     if not isinstance(column, pd.Series):
         raise ValueError("Input not pandas Series")
-
     df = (pd.DataFrame(column))
     df.columns = [column_name]
 
@@ -77,67 +78,42 @@ def shift_column_up(column, shift_len, column_name):
 
 
 def column_expand(indicator_data, indicator_type):
-    col_2, col_3, col_4 = shift_column_up(indicator_data, 1, f'{indicator_type}_back1'), shift_column_up(indicator_data,
-                                                                                                         2,
-                                                                                                         f'{indicator_type}_back2'), shift_column_up(
+    col_2, col_3, col_4 = shift_column_up(indicator_data, 1, f'{indicator_type}_back1'), shift_column_up(indicator_data,2,f'{indicator_type}_back2'), shift_column_up(
         indicator_data, 3, f'{indicator_type}_back3')
 
     return pd.concat([col_2, col_3, col_4], axis=1)
 
+def price_columns(prices, tp, sl, look_forward):
+    'removal of the trades that are almost the same? removal or stay -- check the results to determine ( on the validation set )'
+    'i.e if trade a is taken at 3:15 and another is taken at 3:30 and both are successful, one should be removed'#after processing is done
+    prices = price_action.copy()
+    prices.reset_index(inplace=True)
 
-def price_columns(price, take_profit, stop_loss, look_period):
-    '''Row data in format of (DateTime,Open, High, Low, Close)'''
-
-    result = {
+    result ={
         'DateTime': [],
-        'TRD_Final': [],
-
+        'TRD_Final': []
     }
-    for index, df_row_main in enumerate(price.iterrows()):
-        df_row, dt_main_loop = list(df_row_main[1]), df_row_main[0]
-        entry_price, temp_a = df_row[3], []
 
-        foward_data = {
-            'High': [],
-            'Low': [],
-        }
+    def append_func(dt, trd_result):
+        result['DateTime'].append(dt)
+        result['TRD_Final'].append(trd_result)
 
-        for date, df_row_a in (price.iterrows()):
-            val_return = {
-                'DateTime': [],
-                'Result': []
-            }
+    for index, (date, Open,high,low,close,vol) in enumerate(prices.itertuples(index=False)):
+        entry_price = close
 
-            if date > dt_main_loop and len(foward_data['High']) < look_period:  # error encountered( first condition)
+        max_high = max(prices[index:look_forward + index].High)
+        min_low = min(prices[index:look_forward + index].Low)
 
-                foward_data['High'].append(df_row_a.iloc[1])
-                foward_data['Low'].append(df_row_a.iloc[2])
+        sl_buy, tp_buy =  entry_price - sl, entry_price + tp
+        sl_sell, tp_sell = entry_price + sl, entry_price - tp
 
-                if len(foward_data['High']) == look_period:
-
-                    for high, low in zip(foward_data["High"], foward_data['Low']):
-                        if entry_price + take_profit <= high and entry_price - stop_loss <= low:
-                            val_return['DateTime'].append(df_row_main[0])
-                            val_return['Result'].append(1)
-
-                        elif entry_price - take_profit <= low and entry_price + stop_loss > high:
-                            val_return['DateTime'].append(df_row_main[0])
-                            val_return['Result'].append(-1)
-
-                        elif entry_price - stop_loss <= low or entry_price + stop_loss >= high:  # if any of the sl have been hit
-                            val_return['DateTime'].append(df_row_main[0])
-                            val_return['Result'].append(0)
-
-                    result['DateTime'].append(val_return['DateTime'][0])
-                    result['TRD_Final'].append(val_return['Result'][0])
-
-    end = pd.DataFrame(result).set_index('DateTime')
-
-    missing_data = (price_action.tail(look_period).copy()).drop(['Open', 'High', 'Low', 'Close', 'Volume'], axis=1)
-
-    missing_data['TRD_Final'] = np.nan
-
-    return pd.concat([end, missing_data])
+        if max_high > tp_buy and sl_buy < min_low:
+            append_func(date,1)
+        elif max_high < sl_sell and tp_sell > min_low:
+            append_func(date, -1)
+        else:
+            append_func(date, 0)
+    return pd.DataFrame(result)
 
 
 def rate_of_change_columns(data_frame, period):
@@ -148,34 +124,34 @@ def rate_of_change_columns(data_frame, period):
         categorical_columns = data.select_dtypes(include=['int']).columns.tolist()
         numerical_columns = data.select_dtypes(include=['float']).columns.tolist()
 
-
     except Exception as e:
         print(f"{e} : Remove all nan values present in the DataFrame")
 
     for column in numerical_columns:
         col_name = f'{column}_ROC_{period}'
         if col_name == 'TRD_Final_ROC_4': continue
-        new_roc[col_name] = data[column].pct_change(periods=period)  # print for rsi and ensure other data is correct
+        new_roc[col_name] = data[column].pct_change(periods=period)
 
     return pd.DataFrame(new_roc, index=data.index)
 
-
 def ma_categorical(ma, close_prices):
     ma_df, categories_df = pd.concat(ma, axis=1), {}
-
     for column in ma_df.columns.tolist():
         col_name = f'{column}_categorical'
         categories_df[col_name] = ma_df[column] > (close_prices)
-    return pd.DataFrame(categories_df).astype(int)
 
+    return pd.DataFrame(categories_df).astype(int)
 
 # Data Preparation
 pd.options.display.width = 0
 df = pd.read_csv("C:/Users/25473/Downloads/eurusd-15m/eurusd-15m.csv", sep= ';')
+df = df[:5000]
+
 df.columns = ['DATE','TIME','Open', 'High', 'Low', 'Close', 'Volume']
 df['DATETIME'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
 # df.drop(['DATE', 'TIME'], axis=1, inplace=True)
 order = ['DATETIME', 'Open', 'High', 'Low', 'Close', 'Volume']
+
 
 #For 15M data
 time_from = datetime.datetime.strptime('00:00:00', '%H:%M:%S').time()
@@ -253,7 +229,6 @@ rsi_periods,mom_periods,plus_di_periods, minus_di_periods,cmo_periods,willr_peri
         Parallel(n_jobs=-1, verbose=1)(delayed(indicator_calc)(period,indicator,data_use) for period,indicator,data_use in parameters_list )
 )
 
-
 # Statistical Methods
 std_dev = pd.concat((pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod=3), columns=['Std_dev_3']),
                      pd.DataFrame(tb.STDDEV(price_action.Close, timeperiod=5), columns=['Std_dev_5']),
@@ -264,7 +239,7 @@ correl = pd.concat((pd.DataFrame(tb.CORREL(price_action.High, price_action.Low, 
                     pd.DataFrame(tb.CORREL(price_action.High, price_action.Low, timeperiod=30), columns=['CORREL_30']),
                     pd.DataFrame(tb.CORREL(price_action.High, price_action.Low, timeperiod=45), columns=['CORREL_45']),
                     pd.DataFrame(tb.CORREL(price_action.High, price_action.Low, timeperiod=60),
-                                 columns=['CORREL_60   '])), axis=1)
+                                 columns=['CORREL_60'])), axis=1)
 
 linear_reg = pd.concat((pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod=14), columns=['LinearReg_14']),
                         pd.DataFrame(tb.LINEARREG(price_action.Close, timeperiod=21), columns=['LinearReg_21']),
@@ -313,12 +288,17 @@ cos = pd.concat((pd.DataFrame(tb.COS(price_action.Close), columns=['COS']),
 
 Heikin_ashi = Heikin_Ashi_data(price_action.index, price_action.Open, price_action.High, price_action.Low,price_action.Close)
 ma_categories = ma_categorical([kama_periods, t3_periods, ema_periods, tema_periods], price_action.Close)
-# what is the point of the ma_categorical
-def file_creation(tp,sl,look_foward):
-#Trade_column calculations
-    trade_columns_list = Parallel(n_jobs=-1,verbose=1)(delayed(price_columns)(data_chunk, take_profit=tp, stop_loss=sl,look_period=look_foward)for data_chunk in chunk_split(price_action))
-    trade_columns = pd.concat(trade_columns_list)
+import time as tm
+
+start = tm.perf_counter()
+print(price_columns(price_action,0.0010,0.0010,10)['TRD_Final'].value_counts())
+end = tm.perf_counter()
+print(f'Time Taken: {end - start} seconds')
+
+def file_creation(tp,sl,look_forward):
+    trade_columns = price_columns(price_action,tp=tp,sl=sl,look_forward=look_forward)
     trade_columns.set_index(price_action.index, inplace=True)
+    trade_columns.drop('DateTime', axis=1, inplace=True)
 
     df = pd.concat(
         [price_action.Open, price_action.High, price_action.Low, price_action.Close, Heikin_ashi, cos, exp, sqrt, LOG10, ln,
@@ -335,38 +315,32 @@ def file_creation(tp,sl,look_foward):
     df.dropna(axis=0, inplace=True)  # to remove the nan values from ROC
 
     #creating a new file every
-    file_path = f'C:/Users/25473/Documents/DataFrame/15M_tp_{tp}_sl_{sl}.csv'
-    with open(file_path, 'w+') as file:
-        pass
+    file_path = f'C:/Users/25473/Documents/DataFrame2/15M_tp_{tp}_sl_{sl}.csv'
+    # with open(file_path, 'w+') as file:
+    #     pass
 
     df.to_csv(file_path, index=False)
 
-
-loop_params_m15 = [[0.0010,0.0005,15],[0.0020,0.0010,15],[0.0015,0.0010,15],[0.0014,0.0007,15]]
+loop_params_m15 = [[0.0010,0.0005,15],[0.0020,0.0010,15],[0.0015,0.0010,15],[0.0014,0.0007,15],[0.0016,0.0008,15],[0.0012,0.0008,15],[0.0009,0.0006,15] ]
 loop_params_h4 = [[0.0020,0.0010,10],[0.0020,0.0015,10],[0.0030,0.0010,10],[0.0030,0.0015,10]]
 
 for tp,sl,lp in loop_params_m15:
-        file_creation(tp,sl,lp)
-
-
-                # After file creation ( try and see which one macimizes the scores)
-#Try mixing the data ( for equal distribution ) -- after processing
-# try and remove if i.e 3 are following each other drop 2 ? try if better
+    file_creation(tp,sl,lp)
 
 
 
-
+#             After file creation ( try and see which one macimizes the scores)
+# Try mixing the data ( for equal distribution ) -- after processing
+# Try and remove if i.e 3 are following each other drop 2 ? try if better
+# Find out what is your move ( incase all of this fails ) -- switch to dsa? internships? quant? learn what ?
+#
 # Addition of financial data and removal of entries based off of the news
 # Then removal of the nan values ( keep training with the 4h then later do the 15 minute)
 # find the bset combination use a for loop ( all combinations of sl, tp and look period)
 # and use of the art method for sl and tp -- find the most profiatvble ( ask gpt if approach is good )
-
-
-# considerations
+#
+#             considerations
 # removal of big moves i.e like 30 pips in a candle ( depending on the timeframe )
 # Tp abd Sl values are to be change considering the timeframe
 # Another method would be not to used fixed tp and sl zones
-#reduce timeperiods (to 5 ish ) and addition of the continur=e keyword (reduce irrelevant iterations )
-
-#       Note
-# When done
+# reduce timeperiods (to 5 ish ) and addition of the continur=e keyword (reduce irrelevant iterations )
