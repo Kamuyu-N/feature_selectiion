@@ -37,7 +37,7 @@ else:
 # Corelation Removal
 corr_matrix = df.corr().abs()
 corr_df = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-corelated_columns = [col for col in corr_df.columns if any(corr_df[col] > 0.85)]
+corelated_columns = [col for col in corr_df.columns if any(corr_df[col] > 0.95)]
 all_columns = corr_df.columns
 
 test  = []
@@ -72,7 +72,7 @@ importance_scores = [round(score*1000,3) for score in importance]
 values =  dict(zip(x.columns,importance_scores))
 cpu_no = multiprocessing.cpu_count()
 
-#feature deletion ( accorsing to their importance scores )
+#feature deletion ( according to their importance scores )
 def reduction(corr_list):
     best_features = []
     for vals in corr_list:
@@ -120,8 +120,6 @@ rfe = RFECV(cv=cross_validation, n_jobs=-1, estimator=RandomForestClassifier(n_j
 
 rfe.fit(filtered_df, y)
 print(f'Best number of features : {rfe.n_features_}')
-
-
 
 rankings = rfe.ranking_
 
