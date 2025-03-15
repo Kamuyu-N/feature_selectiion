@@ -22,10 +22,10 @@ df.dropna(axis=0, inplace=True)
 df.drop('DATETIME', axis=1, inplace=True) # has no need ( was only used for filtering the wrong dates)
 
 validation_set = df.tail(2190)
-df = df[:20944]
-k_best_df = df.copy()
+df = df[:len(validation_set)]
 
 #Check for data quality
+k_best_df = df.copy()
 k_best_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 k_best_df.dropna(axis=0, inplace=True)
 
@@ -114,33 +114,19 @@ from sklearn.model_selection import StratifiedKFold, GridSearchCV
 from sklearn.metrics import classification_report
 
 
-rankings = prec_list
-# # rankings  = [26, 1, 1, 24, 63, 14, 20, 31, 1, 49, 65, 75, 1, 72, 1, 66, 1, 41, 1, 1, 21, 1, 11, 67,
-#         51, 47, 1, 56, 53, 70, 59, 16, 12, 57, 1, 64, 35, 1, 73, 1, 17, 18, 71, 61, 69, 4, 52, 1,
-#         38, 7, 9, 1, 15, 1, 1, 27, 1, 34, 45, 60, 1, 37, 1, 33, 6, 1, 23, 54, 19, 1, 36, 5,
-#         48, 28, 55, 29, 40, 39, 1, 42, 1, 25, 13, 30, 58, 1, 2, 8, 68, 50, 3, 43, 1, 1, 1, 44,
-#         1, 74, 46, 10, 1, 22, 1, 32, 62, 1, 76, 1]
+             # recursive feature elimination
+cross_validation = StratifiedKFold(n_splits=5, shuffle=True)
+rfe = RFECV(cv=cross_validation, n_jobs=-1, estimator=RandomForestClassifier(n_jobs=-1), scoring='precision_weighted',verbose=1)
 
+rfe.fit(filtered_df, y)
+print(f'Best number of features : {rfe.n_features_}')
+
+
+
+rankings = rfe.ranking_
 
 rfe_rankings = list(zip(filtered_x,rankings))
 selected_columns = [feature for feature,rank in rfe_rankings if rank == 1]
-
-#             # recursive feature elimination
-# cross_validation = StratifiedKFold(n_splits=5, shuffle=True)
-# rfe = RFECV(cv=cross_validation, n_jobs=-1, estimator=RandomForestClassifier(n_jobs=-1), scoring='precision_weighted',verbose=1)
-
-# rfe.fit(filtered_df, y)
-#
-# print(f'Best number of features : {rfe.n_features_}')
-# print(f'Features selected:{rfe.ranking_}')
-#
-#
-# quit()
-# running boruta
-# with open('C:/Users/25473/Documents/DataFrame/features_to_use.csv','r' ) as file:
-#
-#     selected_columns = (file.read().replace("'","")).split(',')
-
 
 #Test
 filtered_df = pd.DataFrame(k_best_df[selected_columns])
@@ -150,15 +136,15 @@ print(f'Values in the dataframe: {y.value_counts()}')
 filtered_df = filtered_df.iloc[:-1000]
 y = y.iloc[:-1000]
 
+#Model training
 X_train, X_test, y_train, y_test = train_test_split(filtered_df, y, test_size=0.25, random_state=42)
 model = RandomForestClassifier(verbose=1, n_jobs=-1,  n_estimators=500, max_depth=8, max_features=0.5, min_samples_split=10, min_samples_leaf=10)
 model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
-classification = classification_report(y_test,y_pred)
+print(f"Test data\n {classification_report(y_test,y_pred)}")
 
-print(classification)
-print('The validation data test\n\n')
-print(classification_report(y_true=y_validation,y_pred=model.predict(x_validation), zero_division=0.0))
+#Validation Data
+print({classification_report(y_true=y_validation,y_pred=model.predict(x_validation), zero_division=0.0)})
 
 
 from sklearn.preprocessing import label_binarize
@@ -193,7 +179,7 @@ bayes_search = BayesSearchCV(estimator=RandomForestClassifier(n_jobs=-1), scorin
 bayes_search.fit(X_train,y_train)
 print(f'\n best parameters (rfc) = {bayes_search.get_params()}')
 
-quit()
+
 #Validation Set( use best prev params)
 pred_validation = bayes_search.best_estimator_.p(x_validation)
 print('Validation (Rfc)\n\n')
