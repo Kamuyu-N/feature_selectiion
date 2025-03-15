@@ -1,8 +1,15 @@
-# Machine Learning Trading Bot  
+# Machine Learning Trading Bot V1
 
-How it works:
+### Feature creation:
+- All Technical indicators present in the talib library are used to create the various features and have various lengths per indicator i.e( SMA 200, SMA 50,  SMA 21)
+- Creation of Heiken Ashi candles used to smooth out price movement and illustrate trend strength and direction
 
+### Feature Selection
+-
 
+### Model Optimization 
+
+    
 A machine learning-based trading bot that predicts market movements using XGBoost, Random Forest, and Gradient Boosting. The model is optimized to maximize recall for two specific classes related to trading signals.
 
 ## Features  
