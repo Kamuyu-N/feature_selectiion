@@ -316,31 +316,12 @@ def file_creation(tp,sl,look_forward):
 
     #creating a new file every
     file_path = f'C:/Users/25473/Documents/DataFrame2/15M_tp_{tp}_sl_{sl}.csv'
-    # with open(file_path, 'w+') as file:
-    #     pass
-
+    
     df.to_csv(file_path, index=False)
-
-loop_params_m15 = [[0.0010,0.0005,15],[0.0020,0.0010,15],[0.0015,0.0010,15],[0.0014,0.0007,15],[0.0016,0.0008,15],[0.0012,0.0008,15],[0.0009,0.0006,15] ]
+    
+#Format (Take-Profit, stop-Loss,lookBack period)
+loop_params_m15 = [[0.0010,0.0005,15],[0.0020,0.0010,15],[0.0015,0.0010,15],[0.0014,0.0007,15],[0.0016,0.0008,15],[0.0012,0.0008,15],[0.0009,0.0006,15]]
 loop_params_h4 = [[0.0020,0.0010,10],[0.0020,0.0015,10],[0.0030,0.0010,10],[0.0030,0.0015,10]]
 
 for tp,sl,lp in loop_params_m15:
     file_creation(tp,sl,lp)
-
-
-
-#             After file creation ( try and see which one macimizes the scores)
-# Try mixing the data ( for equal distribution ) -- after processing
-# Try and remove if i.e 3 are following each other drop 2 ? try if better
-# Find out what is your move ( incase all of this fails ) -- switch to dsa? internships? quant? learn what ?
-#
-# Addition of financial data and removal of entries based off of the news
-# Then removal of the nan values ( keep training with the 4h then later do the 15 minute)
-# find the bset combination use a for loop ( all combinations of sl, tp and look period)
-# and use of the art method for sl and tp -- find the most profiatvble ( ask gpt if approach is good )
-#
-#             considerations
-# removal of big moves i.e like 30 pips in a candle ( depending on the timeframe )
-# Tp abd Sl values are to be change considering the timeframe
-# Another method would be not to used fixed tp and sl zones
-# reduce timeperiods (to 5 ish ) and addition of the continur=e keyword (reduce irrelevant iterations )
