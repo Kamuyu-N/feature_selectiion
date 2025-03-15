@@ -25,7 +25,6 @@ validation_set = df.tail(2190)
 df = df[:20944]
 k_best_df = df.copy()
 
-
 #Check for data quality
 k_best_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 k_best_df.dropna(axis=0, inplace=True)
@@ -93,20 +92,20 @@ filtered_df = pd.DataFrame(k_best_df[filtered_x])
 num_of_classes = k_best_df['TRD_Final'].value_counts()
 
 
-# prec_list = []
-# for index,k in enumerate(range(5, 200,2), start=5):
-#     selector = SelectKBest(mutual_info_classif,k=k)
-#     selector.fit(X_train,y_train)# get the importance values
-#
-#     x_train_v2 = selector.transform(X_train) # only contains the k best features
-#     x_test_v2 = selector.transform(X_test)
-#
-#     gbc.fit(x_train_v2,y_train)
-#     pred = gbc.predict(x_test_v2)
-#     precis = precision_score(y_test,pred, average='weighted')
-#     print(f'P score is {precis}')
-#
-#     prec_list.append([index, ])
+prec_list = []
+for index,k in enumerate(range(5, 200,2), start=5):
+    selector = SelectKBest(mutual_info_classif,k=k)
+    selector.fit(X_train,y_train)# get the importance values
+
+    x_train_v2 = selector.transform(X_train) # only contains the k best features
+    x_test_v2 = selector.transform(X_test)
+
+    gbc.fit(x_train_v2,y_train)
+    pred = gbc.predict(x_test_v2)
+    precis = precision_score(y_test,pred, average='weighted')
+    print(f'P score is {precis}')
+
+    prec_list.append([index, ])
 
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier,StackingClassifier
@@ -114,17 +113,19 @@ from sklearn.feature_selection import RFECV, RFE
 from sklearn.model_selection import StratifiedKFold, GridSearchCV
 from sklearn.metrics import classification_report
 
-rankings  = [26, 1, 1, 24, 63, 14, 20, 31, 1, 49, 65, 75, 1, 72, 1, 66, 1, 41, 1, 1, 21, 1, 11, 67,
-        51, 47, 1, 56, 53, 70, 59, 16, 12, 57, 1, 64, 35, 1, 73, 1, 17, 18, 71, 61, 69, 4, 52, 1,
-        38, 7, 9, 1, 15, 1, 1, 27, 1, 34, 45, 60, 1, 37, 1, 33, 6, 1, 23, 54, 19, 1, 36, 5,
-        48, 28, 55, 29, 40, 39, 1, 42, 1, 25, 13, 30, 58, 1, 2, 8, 68, 50, 3, 43, 1, 1, 1, 44,
-        1, 74, 46, 10, 1, 22, 1, 32, 62, 1, 76, 1]
+
+rankings = prec_list
+# # rankings  = [26, 1, 1, 24, 63, 14, 20, 31, 1, 49, 65, 75, 1, 72, 1, 66, 1, 41, 1, 1, 21, 1, 11, 67,
+#         51, 47, 1, 56, 53, 70, 59, 16, 12, 57, 1, 64, 35, 1, 73, 1, 17, 18, 71, 61, 69, 4, 52, 1,
+#         38, 7, 9, 1, 15, 1, 1, 27, 1, 34, 45, 60, 1, 37, 1, 33, 6, 1, 23, 54, 19, 1, 36, 5,
+#         48, 28, 55, 29, 40, 39, 1, 42, 1, 25, 13, 30, 58, 1, 2, 8, 68, 50, 3, 43, 1, 1, 1, 44,
+#         1, 74, 46, 10, 1, 22, 1, 32, 62, 1, 76, 1]
 
 
 rfe_rankings = list(zip(filtered_x,rankings))
 selected_columns = [feature for feature,rank in rfe_rankings if rank == 1]
 
-#             # recursive feature eliination
+#             # recursive feature elimination
 # cross_validation = StratifiedKFold(n_splits=5, shuffle=True)
 # rfe = RFECV(cv=cross_validation, n_jobs=-1, estimator=RandomForestClassifier(n_jobs=-1), scoring='precision_weighted',verbose=1)
 
@@ -139,6 +140,7 @@ selected_columns = [feature for feature,rank in rfe_rankings if rank == 1]
 # with open('C:/Users/25473/Documents/DataFrame/features_to_use.csv','r' ) as file:
 #
 #     selected_columns = (file.read().replace("'","")).split(',')
+
 
 #Test
 filtered_df = pd.DataFrame(k_best_df[selected_columns])
