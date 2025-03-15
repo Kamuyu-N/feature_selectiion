@@ -52,7 +52,7 @@ corelated_columns = [col for col in corr_df.columns if any(corr_df[col] > 0.95)]
 all_columns = corr_df.columns
 test  = []
 
-#grouping according to orelations with each other
+#grouping according to feature correlations 
 for index,col in enumerate(corelated_columns):
     temp = (corr_df[col]).tolist()
     index_loc = [temp.index(val) for val in temp if val > 0.95]
@@ -136,10 +136,6 @@ from xgboost import XGBClassifier
 import optuna
 from optuna import Trial
 
-
-
-
-
 param_space = {
     'n_estimators': Integer(100, 700),
     'max_depth': Integer(3, 15),
@@ -163,7 +159,6 @@ gbc_best = None
 best_score = 0.000000001  # Initialize with a very low score
 
 def objective(trail: Trial):
-
     n_estimators = trail.suggest_int('n_estimators',100,700)
     if n_estimators < 100:
         learning_rate = trail.suggest_float('learning_rate', 0.15,0.4)
@@ -288,15 +283,5 @@ print(classification_report(y_test,y_pred))
 print(f'Validation (stack)\n{classification_report(y_validation,stc.predict(x_validation))}')
 joblib.dump(stc, 'stacked_model.pkl')
 thresh(y_pred,'stack_model')
-
-
-# what format will scores be stored as ??
-
-
-# how are we going to implent the eraly stoping measures (decrtease the training time )--------------------
-#should i revert to time series?
-#saving models in a particular dir
-
-
 
 
