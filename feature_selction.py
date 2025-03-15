@@ -30,12 +30,6 @@ k_best_df = df.copy()
 k_best_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 k_best_df.dropna(axis=0, inplace=True)
 
-# k_best_df = k_best_df.sample(frac=1, random_state=42).reset_index(drop=True)
-
-
-sns.heatmap(k_best_df.isnull(), cbar=False, yticklabels=False)
-# plt.show()
-
 if k_best_df.isnull().values.any(): # Check if any NaN values exist in the entire DataFrame
     raise Exception('NaN Values present in dataframe')
 else:
@@ -290,8 +284,10 @@ scores_sept = {
     'Precision_sell': precision_sell,
     'Precision_buy': precison_buy
 }
+
 quit()
 
+#Model stacking( compare results ) 
 from sklearn.ensemble import StackingClassifier
 estimators = [
     ('rf', RandomForestClassifier(n_estimators=500, random_state=42)),
@@ -313,7 +309,7 @@ print(f'{score_df} \n \n GBC training')
 grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=StratifiedKFold(5, shuffle=True), scoring='weighted_precision')
 grid_search.fit(x, y)
 
-# Carry out validation sets
+ validation sets
 lr = GradientBoostingClassifier()
 lr.fit(X_train,y_train)
 y_pred = lr.predict(X_test)
@@ -334,26 +330,6 @@ from sklearn.metrics import make_scorer
 # Create a base model
 rf = RandomForestClassifier()
 stratified_fold = StratifiedKFold(10,shuffle=True, random_state=42)
-
-
-# # Evaluate the best model on the validation set
-# y_pred = best_rf.predict(X_test)
-# print(classification_report(y_test,y_pred))
-
-# Model Stacking
-# scoring methods for both and fix the 15 min thing
-# do baysian seach for the rfc ang gbc - then check the performance on validation set
-
-#Model selection
-# is 116 features too many? should i use the features i had taken -- is overfitting going to become somethiing i should be worried about?
-# should i drop -1 ( for selling to increase profitability)?
-# rememmber to check drawdown( max trades lost at one go)
-# check for different tp and sl
-# MAIN CREATE MULTIPROCESSING FOR THE FEATURE GENERATION
-#LATER CHECK THE 15 MINITE ( with and without the data from 12 am to 6 am ) && do the same for the 4 hr data
-# to be done after multiprocessign is complete ( feature creation)
-# Remember to run it throught the validation sets (and analyse the data) -- profitable or not , all months , gain, total trades et
-
 
 
 
