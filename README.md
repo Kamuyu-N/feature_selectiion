@@ -38,5 +38,5 @@ Clone the repository and install dependencies:
 
 ```bash
 git clone https://github.com/Kamuyu-N/ML-Trading-bot.git
-cd trading-bot
+cd ML-Trading-bot
 pip install -r requirements.txt
