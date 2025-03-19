@@ -13,7 +13,7 @@ A machine learning-based model that predicts future price movement using Techinc
 ### Model Optimization
 - Bayesian optimization then takes place ( to find the best hyperparameeters for the model ) using the Optuna Library 
     
-A machine learning-based trading bot that predicts market movements using XGBoost, Random Forest, and Gradient Boosting. The model is optimized to maximize recall for two specific classes related to trading signals.
+
 
 ## Features  
 - Multi-class classification for trading decisions  
