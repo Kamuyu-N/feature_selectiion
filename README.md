@@ -37,6 +37,6 @@ Make sure you have Python 3.8+ installed along with the following dependencies:
 Clone the repository and install dependencies:  
 
 ```bash
-git clone https://github.com/yourusername/trading-bot.git
+git clone https://github.com/Kamuyu-N/ML-Trading-bot.git
 cd trading-bot
 pip install -r requirements.txt
